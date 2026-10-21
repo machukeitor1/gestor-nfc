@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Primer plano del ícono "Chile": estrella y ondas NFC en blanco.
+     Todo queda dentro de la zona segura (círculo de 66dp al centro). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group android:translateX="3">
+        <!-- Estrella -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M36,30 L37.4,34.1 L41.7,34.1 L38.3,36.7 L39.5,40.9 L36,38.4 L32.5,40.9 L33.7,36.7 L30.3,34.1 L34.6,34.1 Z" />
+        <!-- Punto emisor -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M47,54 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
+        <!-- Ondas NFC -->
+        <path
+            android:pathData="M55.1,48.9 A7.2,7.2 0 0,1 55.1,59.1"
+            android:strokeColor="#FFFFFF"
+            android:strokeLineCap="round"
+            android:strokeWidth="3.6" />
+        <path
+            android:pathData="M59.3,44.7 A13.2,13.2 0 0,1 59.3,63.3"
+            android:strokeColor="#FFFFFF"
+            android:strokeLineCap="round"
+            android:strokeWidth="3.6" />
+        <path
+            android:pathData="M63.6,40.4 A19.2,19.2 0 0,1 63.6,67.6"
+            android:strokeColor="#FFFFFF"
+            android:strokeLineCap="round"
+            android:strokeWidth="3.6" />
+    </group>
+</vector>

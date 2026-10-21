@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fondo del ícono "Chile": azul arriba, línea blanca y franja roja abajo.
+     Lienzo de 108dp; el sistema muestra los 72dp centrales (18..90). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="@color/logo_red"
+        android:pathData="M0,0h108v108h-108z" />
+    <path
+        android:fillColor="@color/logo_blue"
+        android:pathData="M0,0h108v76h-108z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M0,76h108v2.4h-108z" />
+</vector>
