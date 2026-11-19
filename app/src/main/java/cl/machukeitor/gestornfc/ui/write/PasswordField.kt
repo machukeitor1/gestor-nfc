@@ -19,6 +19,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import cl.machukeitor.gestornfc.i18n.tr
 import cl.machukeitor.gestornfc.nfc.PasswordMode
 
 /** Selector Texto/Hex. Afecta a todos los campos de contraseña de la pantalla. */
@@ -52,7 +53,7 @@ fun PasswordField(
             visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
                 IconButton(onClick = { visible = !visible }) {
-                    Icon(if (visible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility, "Mostrar contraseña")
+                    Icon(if (visible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility, tr("Mostrar contraseña", "Show password", "Mostrar senha"))
                 }
             },
         )

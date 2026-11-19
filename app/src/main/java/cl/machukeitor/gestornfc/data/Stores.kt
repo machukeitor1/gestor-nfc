@@ -2,6 +2,7 @@ package cl.machukeitor.gestornfc.data
 
 import android.content.Context
 import android.util.Log
+import cl.machukeitor.gestornfc.i18n.tr
 import cl.machukeitor.gestornfc.nfc.hexToBytes
 import cl.machukeitor.gestornfc.nfc.toHex
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,7 +12,13 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
-enum class HistoryType(val label: String) { READ("Lectura"), WRITE("Escritura"), PROTECT("Protección") }
+enum class HistoryType(private val es: String, private val en: String, private val pt: String) {
+    READ("Lectura", "Read", "Leitura"),
+    WRITE("Escritura", "Write", "Gravação"),
+    PROTECT("Protección", "Protection", "Proteção");
+
+    val label get() = tr(es, en, pt)
+}
 
 data class HistoryEntry(
     val id: Long,

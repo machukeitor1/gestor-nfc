@@ -46,7 +46,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cl.machukeitor.gestornfc.data.HistoryEntry
 import cl.machukeitor.gestornfc.data.HistoryType
+import cl.machukeitor.gestornfc.i18n.tr
 import cl.machukeitor.gestornfc.ui.EmptyState
+import cl.machukeitor.gestornfc.ui.S
 import cl.machukeitor.gestornfc.ui.write.FormField
 import cl.machukeitor.gestornfc.ui.write.NameDialog
 import java.text.DateFormat
@@ -76,12 +78,12 @@ fun HistoryScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Historial") },
+                title = { Text(tr("Historial", "History", "Histórico")) },
                 actions = {
                     if (entries.isNotEmpty()) {
-                        IconButton(onClick = { confirmClear = true }) { Icon(Icons.Filled.DeleteForever, "Borrar historial") }
+                        IconButton(onClick = { confirmClear = true }) { Icon(Icons.Filled.DeleteForever, tr("Borrar historial", "Clear history", "Apagar histórico")) }
                     }
-                    IconButton(onClick = onAbout) { Icon(Icons.Filled.Info, "Acerca de") }
+                    IconButton(onClick = onAbout) { Icon(Icons.Filled.Info, S.about) }
                 },
             )
         },
@@ -91,8 +93,12 @@ fun HistoryScreen(
             Column(Modifier.padding(padding)) {
                 EmptyState(
                     icon = { Icon(Icons.Filled.History, null, Modifier.size(96.dp), tint = MaterialTheme.colorScheme.primary) },
-                    title = "Sin registros todavía",
-                    subtitle = "Aquí aparecerán los tags que leas, escribas o protejas.",
+                    title = tr("Sin registros todavía", "No records yet", "Nenhum registro ainda"),
+                    subtitle = tr(
+                        "Aquí aparecerán los tags que leas, escribas o protejas.",
+                        "Tags you read, write or protect will show up here.",
+                        "As tags que você ler, gravar ou proteger aparecerão aqui.",
+                    ),
                 )
             }
             return@Scaffold
@@ -100,9 +106,9 @@ fun HistoryScreen(
         LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(bottom = 16.dp)) {
             item {
                 Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FormField(query, { query = it }, "Buscar (nombre, contenido, UID…)")
+                    FormField(query, { query = it }, tr("Buscar (nombre, contenido, UID…)", "Search (name, content, UID…)", "Buscar (nome, conteúdo, UID…)"))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChip(selected = filter == null, onClick = { filter = null }, label = { Text("Todos") })
+                        FilterChip(selected = filter == null, onClick = { filter = null }, label = { Text(tr("Todos", "All", "Todos")) })
                         HistoryType.entries.forEach { t ->
                             FilterChip(selected = filter == t, onClick = { filter = t }, label = { Text(t.label) })
                         }
@@ -143,10 +149,18 @@ fun HistoryScreen(
     if (confirmClear) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },
-            title = { Text("¿Borrar todo el historial?") },
-            text = { Text("Se eliminarán ${entries.size} registros. Las plantillas no se tocan.") },
-            confirmButton = { TextButton(onClick = { onClear(); confirmClear = false }) { Text("Borrar") } },
-            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancelar") } },
+            title = { Text(tr("¿Borrar todo el historial?", "Clear all history?", "Apagar todo o histórico?")) },
+            text = {
+                Text(
+                    tr(
+                        "Se eliminarán ${entries.size} registros. Las plantillas no se tocan.",
+                        "${entries.size} records will be deleted. Templates are kept.",
+                        "${entries.size} registros serão excluídos. Os modelos são mantidos.",
+                    )
+                )
+            },
+            confirmButton = { TextButton(onClick = { onClear(); confirmClear = false }) { Text(tr("Borrar", "Clear", "Apagar")) } },
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text(S.cancel) } },
         )
     }
 }
@@ -188,24 +202,24 @@ private fun HistoryDetailDialog(
                 if (entry.uid.isNotBlank()) {
                     Text("UID: ${entry.uid}", style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
                 }
-                FormField(name, { name = it }, "Nombre del tag", placeholder = "Ej: Llavero casa")
-                FormField(note, { note = it }, "Nota", singleLine = false, minLines = 2)
+                FormField(name, { name = it }, tr("Nombre del tag", "Tag name", "Nome da tag"), placeholder = tr("Llavero casa", "Home keychain", "Chaveiro de casa"))
+                FormField(note, { note = it }, tr("Nota", "Note", "Nota"), singleLine = false, minLines = 2)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     if (canWrite) {
-                        TextButton(onClick = onWriteAgain) { Text("Escribir en otro tag") }
-                        TextButton(onClick = { askTemplate = true }) { Text("Plantilla") }
+                        TextButton(onClick = onWriteAgain) { Text(tr("Escribir en otro tag", "Write to another tag", "Gravar em outra tag")) }
+                        TextButton(onClick = { askTemplate = true }) { Text(tr("Plantilla", "Template", "Modelo")) }
                     }
-                    TextButton(onClick = onDelete) { Text("Eliminar", color = MaterialTheme.colorScheme.error) }
+                    TextButton(onClick = onDelete) { Text(S.delete, color = MaterialTheme.colorScheme.error) }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = { onSave(name, note) }) { Text("Guardar") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } },
+        confirmButton = { TextButton(onClick = { onSave(name, note) }) { Text(S.save) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(S.close) } },
     )
 
     if (askTemplate) {
         NameDialog(
-            title = "Guardar como plantilla",
+            title = S.saveAsTemplate,
             initial = name.ifBlank { entry.summary.substringAfter(": ").take(40) },
             onDismiss = { askTemplate = false },
             onConfirm = { onSaveTemplate(it); askTemplate = false },

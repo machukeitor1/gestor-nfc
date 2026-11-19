@@ -1,5 +1,7 @@
 package cl.machukeitor.gestornfc.nfc
 
+import cl.machukeitor.gestornfc.i18n.tr
+
 /** Resultado de leer un tag: todo lo que muestra la pantalla "Leer". */
 data class TagInfo(
     val uid: String,
@@ -29,11 +31,14 @@ data class NdefInfo(
     /** Mensaje NDEF tal cual, para copiarlo a otro tag o guardarlo. */
     val raw: ByteArray?,
 ) {
+    /** Hay algún registro con contenido real. */
+    val hasContent: Boolean get() = records.any { !it.empty }
+
     /** Resumen de una línea: "URL: https://…", "Vacío"… */
     val summary: String
-        get() = records.firstOrNull { it.kind != "Vacío" }
+        get() = records.firstOrNull { !it.empty }
             ?.let { "${it.kind}: ${it.value}" + if (records.size > 1) " (+${records.size - 1})" else "" }
-            ?: "Vacío"
+            ?: tr("Vacío", "Empty", "Vazio")
 }
 
 data class NdefRecordInfo(
@@ -43,6 +48,10 @@ data class NdefRecordInfo(
     /** URI que se puede abrir desde la app (web, teléfono, mapa…), si aplica. */
     val openUri: String? = null,
     val sizeBytes: Int,
+    /** Si es una automatización de Gestor NFC: su JSON, para poder ejecutarla desde la pantalla Leer. */
+    val automationJson: String? = null,
+    /** Registro vacío (TNF_EMPTY). */
+    val empty: Boolean = false,
 )
 
 /** Una página de memoria (4 bytes) de tags tipo NTAG / Ultralight. */

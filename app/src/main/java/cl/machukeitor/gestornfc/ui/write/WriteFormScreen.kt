@@ -41,6 +41,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import cl.machukeitor.gestornfc.i18n.tr
+import cl.machukeitor.gestornfc.nfc.Coordinates
+import cl.machukeitor.gestornfc.ui.S
 import cl.machukeitor.gestornfc.nfc.WifiAuth
 import cl.machukeitor.gestornfc.nfc.WifiConfig
 import cl.machukeitor.gestornfc.nfc.WritePayload
@@ -58,24 +61,10 @@ fun WriteFormScreen(type: WriteType, onBack: () -> Unit, onWrite: (WritePayload)
         WriteType.LOCATION -> LocationForm(onBack, onWrite)
         WriteType.APP -> AppForm(onBack, onWrite)
         WriteType.ERASE -> EraseForm(onBack, onWrite)
+        WriteType.REVIEW -> ReviewForm(onBack, onWrite)
+        WriteType.AUTOMATION -> AutomationForm(onBack, onWrite)
         WriteType.SOCIAL, WriteType.PROTECT, WriteType.TEMPLATES -> Unit // tienen su propia pantalla
     }
-}
-
-/** Extrae "lat,lng" de un enlace de Google Maps o de un texto "‑36.6, ‑72.1". */
-private fun parseCoordinates(text: String): Pair<Double, Double>? {
-    val patterns = listOf(
-        Regex("""@(-?\d+\.\d+),(-?\d+\.\d+)"""),
-        Regex("""[?&](?:q|query|ll|destination)=(-?\d+\.\d+)(?:,|%2C)\s*(-?\d+\.\d+)"""),
-        Regex("""^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$"""),
-    )
-    for (p in patterns) {
-        val m = p.find(text) ?: continue
-        val lat = m.groupValues[1].toDoubleOrNull() ?: continue
-        val lng = m.groupValues[2].toDoubleOrNull() ?: continue
-        if (lat in -90.0..90.0 && lng in -180.0..180.0) return lat to lng
-    }
-    return null
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -92,42 +81,50 @@ private fun LocationForm(onBack: () -> Unit, onWrite: (WritePayload) -> Unit) {
     val payload = if (latValue != null && lngValue != null) {
         WritePayload.Location(latValue, lngValue, label, googleMaps)
     } else null
-    val linkError = if (link.isNotBlank() && parseCoordinates(link) == null) {
-        if (link.contains("goo.gl") || link.contains("maps.app")) "Los enlaces cortos no traen coordenadas: ábrelo y copia el enlace largo, o las coordenadas."
-        else "No encontré coordenadas en el enlace"
+    val linkError = if (link.isNotBlank() && Coordinates.parse(link) == null) {
+        if (link.contains("goo.gl") || link.contains("maps.app")) tr(
+            "Los enlaces cortos no traen coordenadas: ábrelo y copia el enlace largo, o las coordenadas.",
+            "Short links don't include coordinates: open it and copy the long link, or the coordinates.",
+            "Links curtos não trazem coordenadas: abra-o e copie o link longo, ou as coordenadas.",
+        )
+        else tr("No encontré coordenadas en el enlace", "No coordinates found in the link", "Não encontrei coordenadas no link")
     } else null
 
-    FormScaffold("Ubicación", onBack, payload, onWrite) {
+    FormScaffold(WriteType.LOCATION.title, onBack, payload, onWrite) {
         FormField(
             link,
             {
                 link = it
-                parseCoordinates(it)?.let { (a, b) -> lat = a.toString(); lng = b.toString() }
+                Coordinates.parse(it)?.let { (a, b) -> lat = a.toString(); lng = b.toString() }
             },
-            "Pegar enlace de Google Maps (opcional)",
+            tr("Pegar enlace de Google Maps (opcional)", "Paste a Google Maps link (optional)", "Colar link do Google Maps (opcional)"),
             keyboardType = KeyboardType.Uri,
             error = linkError,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FormField(
-                lat, { lat = it }, "Latitud", placeholder = "-36.6066", keyboardType = KeyboardType.Decimal,
+                lat, { lat = it }, tr("Latitud", "Latitude", "Latitude"), placeholder = "-36.6066", keyboardType = KeyboardType.Decimal,
                 modifier = Modifier.weight(1f),
-                error = if (lat.isNotBlank() && latValue == null) "Entre -90 y 90" else null,
+                error = if (lat.isNotBlank() && latValue == null) tr("Entre -90 y 90", "Between -90 and 90", "Entre -90 e 90") else null,
             )
             FormField(
-                lng, { lng = it }, "Longitud", placeholder = "-72.1034", keyboardType = KeyboardType.Decimal,
+                lng, { lng = it }, tr("Longitud", "Longitude", "Longitude"), placeholder = "-72.1034", keyboardType = KeyboardType.Decimal,
                 modifier = Modifier.weight(1f),
-                error = if (lng.isNotBlank() && lngValue == null) "Entre -180 y 180" else null,
+                error = if (lng.isNotBlank() && lngValue == null) tr("Entre -180 y 180", "Between -180 and 180", "Entre -180 e 180") else null,
             )
         }
-        FormField(label, { label = it }, "Nombre del lugar (opcional)")
-        Text("Formato", style = MaterialTheme.typography.labelLarge)
+        FormField(label, { label = it }, tr("Nombre del lugar (opcional)", "Place name (optional)", "Nome do lugar (opcional)"))
+        Text(tr("Formato", "Format", "Formato"), style = MaterialTheme.typography.labelLarge)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = googleMaps, onClick = { googleMaps = true }, label = { Text("Google Maps (Android y iPhone)") })
-            FilterChip(selected = !googleMaps, onClick = { googleMaps = false }, label = { Text("geo: (solo Android)") })
+            FilterChip(selected = googleMaps, onClick = { googleMaps = true }, label = { Text("Google Maps (Android " + tr("y", "and", "e") + " iPhone)") })
+            FilterChip(selected = !googleMaps, onClick = { googleMaps = false }, label = { Text("geo: (" + tr("solo Android", "Android only", "somente Android") + ")") })
         }
         Text(
-            "Tip: en Google Maps mantén presionado un punto y copia las coordenadas que aparecen arriba.",
+            tr(
+                "Tip: en Google Maps mantén presionado un punto y copia las coordenadas que aparecen arriba.",
+                "Tip: in Google Maps, long-press a point and copy the coordinates shown at the top.",
+                "Dica: no Google Maps, mantenha pressionado um ponto e copie as coordenadas que aparecem no topo.",
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -165,19 +162,22 @@ private fun AppForm(onBack: () -> Unit, onWrite: (WritePayload) -> Unit) {
     val pkgValid = Regex("""^[a-zA-Z][\w]*(\.[a-zA-Z_][\w]*)+$""").matches(selectedPkg.trim())
     val payload = if (pkgValid) WritePayload.App(selectedPkg.trim(), selectedName) else null
 
-    FormScaffold("Abrir app", onBack, payload, onWrite) {
+    FormScaffold(WriteType.APP.title, onBack, payload, onWrite) {
         Text(
-            "Al acercar el tag se abre la app. Si no está instalada, se abre su ficha en Play Store. " +
-                "Solo funciona en Android.",
+            tr(
+                "Al acercar el tag se abre la app. Si no está instalada, se abre su ficha en Play Store. Solo funciona en Android.",
+                "Tapping the tag opens the app. If it isn't installed, its Play Store page opens. Android only.",
+                "Ao aproximar a tag, o app abre. Se não estiver instalado, abre a página na Play Store. Somente Android.",
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         FormField(
-            selectedPkg, { selectedPkg = it; selectedName = "" }, "Paquete de la app",
+            selectedPkg, { selectedPkg = it; selectedName = "" }, tr("Paquete de la app", "App package", "Pacote do app"),
             placeholder = "com.whatsapp", keyboardType = KeyboardType.Uri,
-            error = if (selectedPkg.isNotBlank() && !pkgValid) "Nombre de paquete no válido" else null,
+            error = if (selectedPkg.isNotBlank() && !pkgValid) S.packageInvalid else null,
         )
-        FormField(query, { query = it }, "Buscar entre tus apps")
+        FormField(query, { query = it }, tr("Buscar entre tus apps", "Search your apps", "Buscar entre seus apps"))
         val list = apps
         if (list == null) {
             LinearProgressIndicator(Modifier.fillMaxWidth())
@@ -202,18 +202,20 @@ private fun AppForm(onBack: () -> Unit, onWrite: (WritePayload) -> Unit) {
 @Composable
 private fun EraseForm(onBack: () -> Unit, onWrite: (WritePayload) -> Unit) {
     FormScaffold(
-        title = "Borrar / formatear",
+        title = WriteType.ERASE.title,
         onBack = onBack,
         payload = WritePayload.Empty,
         onWrite = onWrite,
         allowTemplate = false,
-        writeLabel = "Borrar tag",
+        writeLabel = tr("Borrar tag", "Erase tag", "Apagar tag"),
     ) {
-        Text("Deja el tag vacío, listo para volver a usarlo.", style = MaterialTheme.typography.bodyLarge)
+        Text(tr("Deja el tag vacío, listo para volver a usarlo.", "Leaves the tag empty, ready to reuse.", "Deixa a tag vazia, pronta para reutilizar."), style = MaterialTheme.typography.bodyLarge)
         Text(
-            "• Si el tag es nuevo y no tiene formato, lo formatea como NDEF.\n" +
-                "• Si tiene contraseña, te la pedirá.\n" +
-                "• No funciona en tags con bloqueo permanente.",
+            tr(
+                "• Si el tag es nuevo y no tiene formato, lo formatea como NDEF.\n• Si tiene contraseña, te la pedirá.\n• No funciona en tags con bloqueo permanente.",
+                "• If the tag is new and unformatted, it formats it as NDEF.\n• If it has a password, you'll be asked for it.\n• Doesn't work on permanently locked tags.",
+                "• Se a tag for nova e sem formato, ela é formatada como NDEF.\n• Se tiver senha, ela será pedida.\n• Não funciona em tags com bloqueio permanente.",
+            ),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -235,22 +237,22 @@ private fun cleanPhone(s: String) = s.filter { it.isDigit() || it == '+' }
 private fun UrlForm(onBack: () -> Unit, onWrite: (WritePayload) -> Unit) {
     var url by rememberSaveable { mutableStateOf("") }
     val normalized = normalizeUrl(url)
-    FormScaffold("URL / Web", onBack, normalized?.let { WritePayload.Link("URL", it) }, onWrite) {
+    FormScaffold(WriteType.URL.title, onBack, normalized?.let { WritePayload.Link("URL", it) }, onWrite) {
         FormField(
-            url, { url = it }, "Dirección web",
-            placeholder = "www.ejemplo.cl",
+            url, { url = it }, tr("Dirección web", "Web address", "Endereço web"),
+            placeholder = tr("www.ejemplo.cl", "www.example.com", "www.exemplo.com.br"),
             keyboardType = KeyboardType.Uri,
-            error = if (url.isNotBlank() && normalized == null) "No parece una URL válida" else null,
+            error = if (url.isNotBlank() && normalized == null) tr("No parece una URL válida", "Doesn't look like a valid URL", "Não parece uma URL válida") else null,
         )
-        normalized?.let { Text("Se grabará: $it", style = MaterialTheme.typography.bodySmall) }
+        normalized?.let { Text(tr("Se grabará", "Will write", "Será gravado") + ": $it", style = MaterialTheme.typography.bodySmall) }
     }
 }
 
 @Composable
 private fun TextForm(onBack: () -> Unit, onWrite: (WritePayload) -> Unit) {
     var text by rememberSaveable { mutableStateOf("") }
-    FormScaffold("Texto", onBack, text.takeIf { it.isNotBlank() }?.let { WritePayload.Text(it) }, onWrite) {
-        FormField(text, { text = it }, "Texto", singleLine = false, minLines = 4)
+    FormScaffold(WriteType.TEXT.title, onBack, text.takeIf { it.isNotBlank() }?.let { WritePayload.Text(it) }, onWrite) {
+        FormField(text, { text = it }, WriteType.TEXT.title, singleLine = false, minLines = 4)
     }
 }
 
@@ -265,15 +267,15 @@ private fun WifiForm(onBack: () -> Unit, onWrite: (WritePayload) -> Unit) {
     val passwordError = when {
         auth == WifiAuth.OPEN -> null
         password.isEmpty() -> null
-        password.length !in 8..63 -> "Debe tener entre 8 y 63 caracteres"
+        password.length !in 8..63 -> tr("Debe tener entre 8 y 63 caracteres", "Must be 8 to 63 characters", "Deve ter entre 8 e 63 caracteres")
         else -> null
     }
     val valid = ssid.isNotBlank() && (auth == WifiAuth.OPEN || (password.length in 8..63))
     val payload = if (valid) WritePayload.Wifi(WifiConfig(ssid.trim(), password, auth)) else null
 
     FormScaffold("Wi‑Fi", onBack, payload, onWrite) {
-        FormField(ssid, { ssid = it }, "Nombre de la red (SSID)")
-        Text("Seguridad", style = MaterialTheme.typography.labelLarge)
+        FormField(ssid, { ssid = it }, tr("Nombre de la red (SSID)", "Network name (SSID)", "Nome da rede (SSID)"))
+        Text(tr("Seguridad", "Security", "Segurança"), style = MaterialTheme.typography.labelLarge)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             WifiAuth.entries.forEach {
                 FilterChip(selected = auth == it, onClick = { auth = it }, label = { Text(it.label) })
@@ -281,20 +283,23 @@ private fun WifiForm(onBack: () -> Unit, onWrite: (WritePayload) -> Unit) {
         }
         if (auth != WifiAuth.OPEN) {
             FormField(
-                password, { password = it }, "Contraseña",
+                password, { password = it }, S.password,
                 error = passwordError,
                 keyboardType = KeyboardType.Password,
                 visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
                     IconButton(onClick = { showPassword = !showPassword }) {
-                        Icon(if (showPassword) Icons.Filled.VisibilityOff else Icons.Filled.Visibility, "Mostrar contraseña")
+                        Icon(if (showPassword) Icons.Filled.VisibilityOff else Icons.Filled.Visibility, tr("Mostrar contraseña", "Show password", "Mostrar senha"))
                     }
                 },
             )
         }
         Text(
-            "Al acercar el tag, Android 10+ e iPhone ofrecen conectarse a la red. " +
-                "Ojo: cualquiera que lea el tag podrá ver la contraseña.",
+            tr(
+                "Al acercar el tag, Android 10+ e iPhone ofrecen conectarse a la red. Ojo: cualquiera que lea el tag podrá ver la contraseña.",
+                "When the tag is tapped, Android 10+ and iPhone offer to join the network. Note: anyone who reads the tag can see the password.",
+                "Ao aproximar a tag, Android 10+ e iPhone oferecem conectar à rede. Atenção: qualquer pessoa que ler a tag poderá ver a senha.",
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -312,25 +317,29 @@ private fun ContactForm(onBack: () -> Unit, onWrite: (WritePayload) -> Unit) {
     var web by rememberSaveable { mutableStateOf("") }
     var address by rememberSaveable { mutableStateOf("") }
 
-    val emailError = if (email.isNotBlank() && !isEmail(email)) "Email no válido" else null
+    val emailError = if (email.isNotBlank() && !isEmail(email)) S.notValidEmail else null
     val valid = first.isNotBlank() && emailError == null
     val payload = if (valid) {
         WritePayload.Contact(first, last, cleanPhone(phone), email, company, title, web, address)
     } else null
 
-    FormScaffold("Contacto", onBack, payload, onWrite) {
+    FormScaffold(WriteType.CONTACT.title, onBack, payload, onWrite) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FormField(first, { first = it }, "Nombre *", modifier = Modifier.weight(1f))
-            FormField(last, { last = it }, "Apellido", modifier = Modifier.weight(1f))
+            FormField(first, { first = it }, S.name + " *", modifier = Modifier.weight(1f))
+            FormField(last, { last = it }, tr("Apellido", "Last name", "Sobrenome"), modifier = Modifier.weight(1f))
         }
-        FormField(phone, { phone = it }, "Teléfono", placeholder = "+56 9 1234 5678", keyboardType = KeyboardType.Phone)
+        FormField(phone, { phone = it }, WriteType.PHONE.title, placeholder = S.phoneHint, keyboardType = KeyboardType.Phone)
         FormField(email, { email = it }, "Email", keyboardType = KeyboardType.Email, error = emailError)
-        FormField(company, { company = it }, "Empresa")
-        FormField(title, { title = it }, "Cargo")
-        FormField(web, { web = it }, "Sitio web", keyboardType = KeyboardType.Uri)
-        FormField(address, { address = it }, "Dirección")
+        FormField(company, { company = it }, tr("Empresa", "Company", "Empresa"))
+        FormField(title, { title = it }, tr("Cargo", "Job title", "Cargo"))
+        FormField(web, { web = it }, tr("Sitio web", "Website", "Site"), keyboardType = KeyboardType.Uri)
+        FormField(address, { address = it }, tr("Dirección", "Address", "Endereço"))
         Text(
-            "Mientras más campos, más espacio ocupa. Un NTAG213 alcanza para nombre, teléfono y email.",
+            tr(
+                "Mientras más campos, más espacio ocupa. Un NTAG213 alcanza para nombre, teléfono y email.",
+                "More fields take more space. An NTAG213 fits a name, phone and email.",
+                "Quanto mais campos, mais espaço ocupa. Uma NTAG213 comporta nome, telefone e email.",
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -341,9 +350,9 @@ private fun ContactForm(onBack: () -> Unit, onWrite: (WritePayload) -> Unit) {
 private fun PhoneForm(onBack: () -> Unit, onWrite: (WritePayload) -> Unit) {
     var phone by rememberSaveable { mutableStateOf("") }
     val clean = cleanPhone(phone)
-    val payload = if (clean.count { it.isDigit() } >= 6) WritePayload.Link("Teléfono", "tel:$clean") else null
-    FormScaffold("Teléfono", onBack, payload, onWrite) {
-        FormField(phone, { phone = it }, "Número", placeholder = "+56 9 1234 5678", keyboardType = KeyboardType.Phone)
+    val payload = if (clean.count { it.isDigit() } >= 6) WritePayload.Link(WriteType.PHONE.title, "tel:$clean") else null
+    FormScaffold(WriteType.PHONE.title, onBack, payload, onWrite) {
+        FormField(phone, { phone = it }, tr("Número", "Number", "Número"), placeholder = S.phoneHint, keyboardType = KeyboardType.Phone)
     }
 }
 
@@ -357,8 +366,8 @@ private fun SmsForm(onBack: () -> Unit, onWrite: (WritePayload) -> Unit) {
         WritePayload.Link("SMS", "sms:$clean$body")
     } else null
     FormScaffold("SMS", onBack, payload, onWrite) {
-        FormField(phone, { phone = it }, "Número", placeholder = "+56 9 1234 5678", keyboardType = KeyboardType.Phone)
-        FormField(message, { message = it }, "Mensaje (opcional)", singleLine = false, minLines = 3)
+        FormField(phone, { phone = it }, tr("Número", "Number", "Número"), placeholder = S.phoneHint, keyboardType = KeyboardType.Phone)
+        FormField(message, { message = it }, tr("Mensaje (opcional)", "Message (optional)", "Mensagem (opcional)"), singleLine = false, minLines = 3)
     }
 }
 
@@ -376,10 +385,10 @@ private fun EmailForm(onBack: () -> Unit, onWrite: (WritePayload) -> Unit) {
     } else null
     FormScaffold("Email", onBack, payload, onWrite) {
         FormField(
-            to, { to = it }, "Destinatario", keyboardType = KeyboardType.Email,
-            error = if (to.isNotBlank() && !isEmail(to)) "Email no válido" else null,
+            to, { to = it }, tr("Destinatario", "Recipient", "Destinatário"), keyboardType = KeyboardType.Email,
+            error = if (to.isNotBlank() && !isEmail(to)) S.notValidEmail else null,
         )
-        FormField(subject, { subject = it }, "Asunto (opcional)")
-        FormField(body, { body = it }, "Mensaje (opcional)", singleLine = false, minLines = 3)
+        FormField(subject, { subject = it }, tr("Asunto (opcional)", "Subject (optional)", "Assunto (opcional)"))
+        FormField(body, { body = it }, tr("Mensaje (opcional)", "Message (optional)", "Mensagem (opcional)"), singleLine = false, minLines = 3)
     }
 }

@@ -9,6 +9,8 @@ import cl.machukeitor.gestornfc.data.HistoryStore
 import cl.machukeitor.gestornfc.data.HistoryType
 import cl.machukeitor.gestornfc.data.Template
 import cl.machukeitor.gestornfc.data.TemplateStore
+import cl.machukeitor.gestornfc.i18n.tr
+import cl.machukeitor.gestornfc.nfc.Msg
 import cl.machukeitor.gestornfc.nfc.Ntag
 import cl.machukeitor.gestornfc.nfc.PasswordStore
 import cl.machukeitor.gestornfc.nfc.TagInfo
@@ -44,19 +46,19 @@ sealed interface TagJob {
     }
 
     data class SetPassword(val password: ByteArray, val remember: Boolean) : TagJob {
-        override val summary get() = "Poner contraseña de escritura"
+        override val summary get() = tr("Poner contraseña de escritura", "Set write password", "Definir senha de escrita")
     }
 
     data class ChangePassword(val old: ByteArray, val new: ByteArray, val remember: Boolean) : TagJob {
-        override val summary get() = "Cambiar contraseña"
+        override val summary get() = tr("Cambiar contraseña", "Change password", "Alterar senha")
     }
 
     data class RemovePassword(val password: ByteArray) : TagJob {
-        override val summary get() = "Quitar contraseña"
+        override val summary get() = tr("Quitar contraseña", "Remove password", "Remover senha")
     }
 
     data object LockPermanent : TagJob {
-        override val summary get() = "Bloqueo permanente (solo lectura)"
+        override val summary get() = tr("Bloqueo permanente (solo lectura)", "Permanent lock (read-only)", "Bloqueio permanente (somente leitura)")
     }
 }
 
@@ -120,7 +122,7 @@ class NfcViewModel(app: Application) : AndroidViewModel(app) {
                 HistoryType.READ,
                 uid = info.uid,
                 chip = info.chip,
-                summary = info.ndef?.summary ?: "Sin formato NDEF",
+                summary = info.ndef?.summary ?: tr("Sin formato NDEF", "Not NDEF formatted", "Sem formato NDEF"),
                 ndef = info.ndef?.raw,
             )
         } catch (e: Exception) {
@@ -129,7 +131,11 @@ class NfcViewModel(app: Application) : AndroidViewModel(app) {
                 it.copy(
                     reading = false,
                     readCount = it.readCount + 1,
-                    readError = "No se pudo leer el tag. Mantenlo quieto hasta que termine y vuelve a intentar.",
+                    readError = tr(
+                        "No se pudo leer el tag. Mantenlo quieto hasta que termine y vuelve a intentar.",
+                        "Couldn't read the tag. Hold it still until it finishes and try again.",
+                        "Não foi possível ler a tag. Mantenha-a parada até terminar e tente de novo.",
+                    ),
                 )
             }
         }
@@ -147,7 +153,7 @@ class NfcViewModel(app: Application) : AndroidViewModel(app) {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error en ${job.summary}", e)
-            WriteResult.Failure("Error inesperado: ${e.message ?: e.javaClass.simpleName}")
+            WriteResult.Failure(tr("Error inesperado", "Unexpected error", "Erro inesperado") + ": ${e.message ?: e.javaClass.simpleName}")
         }
 
         if (result is WriteResult.Success) {
@@ -167,7 +173,7 @@ class NfcViewModel(app: Application) : AndroidViewModel(app) {
                 WriteState.NeedsPassword(job.copy(password = null), wrong = true)
             }
             result is WriteResult.WrongPassword ->
-                WriteState.Done(job, WriteResult.Failure("La contraseña actual no es correcta."))
+                WriteState.Done(job, WriteResult.Failure(tr("La contraseña actual no es correcta.", "The current password is wrong.", "A senha atual está incorreta.")))
             // En serie se sigue esperando el siguiente tag; los errores se muestran en el mismo diálogo.
             job is TagJob.Write && job.series -> {
                 _state.update {
@@ -189,9 +195,17 @@ class NfcViewModel(app: Application) : AndroidViewModel(app) {
             if (it is WriteResult.Success && it.usedPassword) {
                 it.copy(
                     message = it.message + if (stored != null) {
-                        "\n🔒 El tag está protegido: se usó la contraseña guardada en este teléfono."
+                        "\n🔒 " + tr(
+                            "El tag está protegido: se usó la contraseña guardada en este teléfono.",
+                            "The tag is protected: the password saved on this phone was used.",
+                            "A tag está protegida: foi usada a senha salva neste celular.",
+                        )
                     } else {
-                        "\n🔒 El tag sigue protegido con su contraseña."
+                        "\n🔒 " + tr(
+                            "El tag sigue protegido con su contraseña.",
+                            "The tag is still protected by its password.",
+                            "A tag continua protegida pela senha.",
+                        )
                     }
                 )
             } else it
@@ -201,18 +215,23 @@ class NfcViewModel(app: Application) : AndroidViewModel(app) {
         val protection = try {
             Ntag.probe(tag)
         } catch (e: Exception) {
-            return WriteResult.Success(result.message + "\nNo se pudo proteger: se perdió el contacto con el tag.")
+            return WriteResult.Success(result.message + "\n" + tr("No se pudo proteger", "Couldn't protect it", "Não foi possível proteger") + ": " + Msg.tagLostHold)
         }
         return when {
-            protection == null -> WriteResult.Success(result.message + "\nEste tag no admite contraseña: quedó sin proteger.")
+            protection == null -> WriteResult.Success(result.message + "\n" + tr(
+                "Este tag no admite contraseña: quedó sin proteger.",
+                "This tag doesn't support passwords: it was left unprotected.",
+                "Esta tag não suporta senha: ficou sem proteção.",
+            ))
             protection.writeProtected -> result // ya estaba protegido
             else -> when (val p = Ntag.setPassword(tag, protect)) {
                 is WriteResult.Success -> {
                     passwords.put(uid, protect)
-                    WriteResult.Success(result.message + "\nTag protegido con contraseña.")
+                    WriteResult.Success(result.message + "\n" + tr("Tag protegido con contraseña.", "Tag protected with a password.", "Tag protegida com senha."))
                 }
                 else -> WriteResult.Success(
-                    result.message + "\nNo se pudo proteger: " + ((p as? WriteResult.Failure)?.message ?: "error")
+                    result.message + "\n" + tr("No se pudo proteger", "Couldn't protect it", "Não foi possível proteger") + ": " +
+                        ((p as? WriteResult.Failure)?.message ?: "error")
                 )
             }
         }
@@ -227,20 +246,33 @@ class NfcViewModel(app: Application) : AndroidViewModel(app) {
         var removed = false
         if (protection?.writeProtected == true) {
             val pwd = passwords.get(uid) ?: return WriteResult.Failure(
-                "Este tag tiene contraseña de escritura y no está guardada en este teléfono. " +
-                    "Quítala primero en Proteger → Quitar contraseña, y luego bloquéalo."
+                tr(
+                    "Este tag tiene contraseña de escritura y no está guardada en este teléfono. Quítala primero en Proteger → Quitar contraseña, y luego bloquéalo.",
+                    "This tag has a write password that isn't saved on this phone. Remove it first in Protect → Remove password, then lock it.",
+                    "Esta tag tem senha de escrita que não está salva neste celular. Remova-a primeiro em Proteger → Remover senha e depois bloqueie.",
+                )
             )
             when (val r = Ntag.removePassword(tag, pwd)) {
                 is WriteResult.Success -> removed = true
                 WriteResult.WrongPassword -> return WriteResult.Failure(
-                    "La contraseña guardada para este tag ya no es válida. Quítala en Proteger con la contraseña correcta."
+                    tr(
+                        "La contraseña guardada para este tag ya no es válida. Quítala en Proteger con la contraseña correcta.",
+                        "The password saved for this tag is no longer valid. Remove it in Protect with the correct password.",
+                        "A senha salva para esta tag não é mais válida. Remova-a em Proteger com a senha correta.",
+                    )
                 )
                 else -> return r
             }
         }
         val result = TagWriter.makeReadOnly(tag)
         return if (removed && result is WriteResult.Success) {
-            result.copy(message = "Se quitó la contraseña y el tag quedó bloqueado permanentemente (solo lectura).")
+            result.copy(
+                message = tr(
+                    "Se quitó la contraseña y el tag quedó bloqueado permanentemente (solo lectura).",
+                    "The password was removed and the tag is now permanently locked (read-only).",
+                    "A senha foi removida e a tag ficou bloqueada permanentemente (somente leitura).",
+                )
+            )
         } else result
     }
 

@@ -41,16 +41,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import cl.machukeitor.gestornfc.TagJob
+import cl.machukeitor.gestornfc.i18n.tr
 import cl.machukeitor.gestornfc.nfc.PasswordMode
+import cl.machukeitor.gestornfc.ui.S
 
-private enum class ProtectAction(val label: String) {
-    SET("Poner contraseña"),
-    CHANGE("Cambiar contraseña"),
-    REMOVE("Quitar contraseña"),
-    LOCK("Bloqueo permanente"),
+private enum class ProtectAction {
+    SET, CHANGE, REMOVE, LOCK;
+
+    val label: String
+        get() = when (this) {
+            SET -> tr("Poner contraseña", "Set password", "Definir senha")
+            CHANGE -> tr("Cambiar contraseña", "Change password", "Alterar senha")
+            REMOVE -> tr("Quitar contraseña", "Remove password", "Remover senha")
+            LOCK -> tr("Bloqueo permanente", "Permanent lock", "Bloqueio permanente")
+        }
 }
 
-private const val LOCK_WORD = "BLOQUEAR"
+private val LOCK_WORD get() = tr("BLOQUEAR", "LOCK", "BLOQUEAR")
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -60,21 +67,24 @@ fun ProtectScreen(onBack: () -> Unit, onStart: (TagJob) -> Unit, onForgetPasswor
     if (confirmForget) {
         AlertDialog(
             onDismissRequest = { confirmForget = false },
-            title = { Text("¿Olvidar contraseñas guardadas?") },
+            title = { Text(tr("¿Olvidar contraseñas guardadas?", "Forget saved passwords?", "Esquecer senhas salvas?")) },
             text = {
                 Text(
-                    "La app dejará de usar sola las contraseñas que guardaste. Los tags siguen protegidos: " +
-                        "para modificarlos se te pedirá la contraseña. Sirve para comprobar que la protección funciona."
+                    tr(
+                        "La app dejará de usar sola las contraseñas que guardaste. Los tags siguen protegidos: para modificarlos se te pedirá la contraseña. Sirve para comprobar que la protección funciona.",
+                        "The app will stop using your saved passwords on its own. Tags stay protected: you'll be asked for the password to change them. Useful to check that the protection works.",
+                        "O app deixará de usar sozinho as senhas que você salvou. As tags continuam protegidas: a senha será pedida para modificá-las. Serve para verificar que a proteção funciona.",
+                    )
                 )
             },
             confirmButton = {
                 TextButton(onClick = {
                     val n = onForgetPasswords()
-                    Toast.makeText(context, "Se olvidaron $n contraseñas", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, tr("Se olvidaron $n contraseñas", "$n passwords forgotten", "$n senhas esquecidas"), Toast.LENGTH_SHORT).show()
                     confirmForget = false
-                }) { Text("Olvidar") }
+                }) { Text(tr("Olvidar", "Forget", "Esquecer")) }
             },
-            dismissButton = { TextButton(onClick = { confirmForget = false }) { Text("Cancelar") } },
+            dismissButton = { TextButton(onClick = { confirmForget = false }) { Text(S.cancel) } },
         )
     }
     var action by rememberSaveable { mutableStateOf(ProtectAction.SET) }
@@ -88,7 +98,7 @@ fun ProtectScreen(onBack: () -> Unit, onStart: (TagJob) -> Unit, onForgetPasswor
 
     val currentBytes = mode.toBytes(current)
     val newBytes = mode.toBytes(new)
-    val confirmError = if (confirm.isNotEmpty() && confirm != new) "No coincide" else null
+    val confirmError = if (confirm.isNotEmpty() && confirm != new) tr("No coincide", "Doesn't match", "Não confere") else null
     val newOk = newBytes != null && confirm == new
 
     val job: TagJob? = when (action) {
@@ -102,8 +112,8 @@ fun ProtectScreen(onBack: () -> Unit, onStart: (TagJob) -> Unit, onForgetPasswor
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Proteger") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } },
+                title = { Text(WriteType.PROTECT.title) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, S.back) } },
             )
         },
         contentWindowInsets = WindowInsets(0),
@@ -126,33 +136,37 @@ fun ProtectScreen(onBack: () -> Unit, onStart: (TagJob) -> Unit, onForgetPasswor
                 LockSection(understood, { understood = it }, lockWord, { lockWord = it })
             } else {
                 Text(
-                    "Protege la escritura: cualquiera puede leer el tag, pero solo quien sepa la contraseña puede modificarlo.",
+                    tr(
+                        "Protege la escritura: cualquiera puede leer el tag, pero solo quien sepa la contraseña puede modificarlo.",
+                        "Protects writing: anyone can read the tag, but only someone with the password can change it.",
+                        "Protege a escrita: qualquer pessoa pode ler a tag, mas só quem souber a senha pode modificá-la.",
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                Text("Tipo de contraseña", style = MaterialTheme.typography.labelLarge)
+                Text(tr("Tipo de contraseña", "Password type", "Tipo de senha"), style = MaterialTheme.typography.labelLarge)
                 PasswordModeSelector(mode) { mode = it; current = ""; new = ""; confirm = "" }
 
                 if (action != ProtectAction.SET) {
-                    PasswordField(current, { current = it }, "Contraseña actual", mode)
+                    PasswordField(current, { current = it }, tr("Contraseña actual", "Current password", "Senha atual"), mode)
                 }
                 if (action != ProtectAction.REMOVE) {
-                    PasswordField(new, { new = it }, "Nueva contraseña", mode)
-                    PasswordField(confirm, { confirm = it }, "Repetir nueva contraseña", mode, extraError = confirmError)
+                    PasswordField(new, { new = it }, tr("Nueva contraseña", "New password", "Nova senha"), mode)
+                    PasswordField(confirm, { confirm = it }, tr("Repetir nueva contraseña", "Repeat new password", "Repetir nova senha"), mode, extraError = confirmError)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = keep, onCheckedChange = { keep = it })
-                        Text("Recordarla en este teléfono para ese tag")
+                        Text(tr("Recordarla en este teléfono para ese tag", "Remember it on this phone for that tag", "Lembrar neste celular para essa tag"))
                     }
                 }
 
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Importante", style = MaterialTheme.typography.titleSmall)
+                        Text(tr("Importante", "Important", "Importante"), style = MaterialTheme.typography.titleSmall)
                         Text(
-                            "• Si olvidas la contraseña no podrás volver a modificar el tag.\n" +
-                                "• Funciona con NTAG213/215/216 y MIFARE Ultralight EV1.\n" +
-                                "• Con \"Texto\", otras apps (ej. NFC Tools) no reconocerán la misma contraseña; " +
-                                "con \"Hex\" sí.\n" +
-                                "• Es una protección básica (4 bytes): evita modificaciones casuales, no ataques dirigidos.",
+                            tr(
+                                "• Si olvidas la contraseña no podrás volver a modificar el tag.\n• Funciona con NTAG213/215/216 y MIFARE Ultralight EV1.\n• Con \"Texto\", otras apps (ej. NFC Tools) no reconocerán la misma contraseña; con \"Hex\" sí.\n• Es una protección básica (4 bytes): evita modificaciones casuales, no ataques dirigidos.",
+                                "• If you forget the password you won't be able to change the tag again.\n• Works with NTAG213/215/216 and MIFARE Ultralight EV1.\n• With \"Text\", other apps (e.g. NFC Tools) won't recognize the same password; with \"Hex\" they will.\n• It's basic protection (4 bytes): it stops casual changes, not targeted attacks.",
+                                "• Se você esquecer a senha, não poderá modificar a tag novamente.\n• Funciona com NTAG213/215/216 e MIFARE Ultralight EV1.\n• Com \"Texto\", outros apps (ex. NFC Tools) não reconhecerão a mesma senha; com \"Hex\" sim.\n• É uma proteção básica (4 bytes): evita modificações casuais, não ataques direcionados.",
+                            ),
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
@@ -171,7 +185,7 @@ fun ProtectScreen(onBack: () -> Unit, onStart: (TagJob) -> Unit, onForgetPasswor
                 Text(action.label, Modifier.padding(start = 8.dp))
             }
             TextButton(onClick = { confirmForget = true }, modifier = Modifier.fillMaxWidth()) {
-                Text("Olvidar contraseñas guardadas en este teléfono")
+                Text(tr("Olvidar contraseñas guardadas en este teléfono", "Forget passwords saved on this phone", "Esquecer senhas salvas neste celular"))
             }
         }
     }
@@ -186,22 +200,28 @@ private fun LockSection(
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("⚠ Esto es irreversible", style = MaterialTheme.typography.titleSmall)
+            Text("⚠ " + tr("Esto es irreversible", "This can't be undone", "Isto é irreversível"), style = MaterialTheme.typography.titleSmall)
             Text(
-                "El tag queda de solo lectura para siempre: nadie, ni tú, podrá volver a escribirlo, " +
-                    "borrarlo ni ponerle contraseña. Verifica antes que el contenido sea el correcto.",
+                tr(
+                    "El tag queda de solo lectura para siempre: nadie, ni tú, podrá volver a escribirlo, borrarlo ni ponerle contraseña. Verifica antes que el contenido sea el correcto.",
+                    "The tag becomes read-only forever: nobody, not even you, will be able to write, erase or password-protect it again. Check the content is correct first.",
+                    "A tag fica somente leitura para sempre: ninguém, nem você, poderá gravá-la, apagá-la ou colocar senha. Verifique antes se o conteúdo está correto.",
+                ),
                 style = MaterialTheme.typography.bodySmall,
             )
             Text(
-                "Si el tag tiene contraseña y está guardada en este teléfono, se quita sola antes de bloquear. " +
-                    "Si no está guardada, primero quítala con \"Quitar contraseña\".",
+                tr(
+                    "Si el tag tiene contraseña y está guardada en este teléfono, se quita sola antes de bloquear. Si no está guardada, primero quítala con \"Quitar contraseña\".",
+                    "If the tag has a password saved on this phone, it's removed automatically before locking. If it isn't saved, remove it first with \"Remove password\".",
+                    "Se a tag tiver senha salva neste celular, ela é removida automaticamente antes de bloquear. Se não estiver salva, remova-a primeiro com \"Remover senha\".",
+                ),
                 style = MaterialTheme.typography.bodySmall,
             )
         }
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(checked = understood, onCheckedChange = onUnderstood)
-        Text("Entiendo que no se puede deshacer")
+        Text(tr("Entiendo que no se puede deshacer", "I understand this can't be undone", "Entendo que não pode ser desfeito"))
     }
-    FormField(lockWord, onLockWord, "Escribe $LOCK_WORD para confirmar")
+    FormField(lockWord, onLockWord, tr("Escribe $LOCK_WORD para confirmar", "Type $LOCK_WORD to confirm", "Digite $LOCK_WORD para confirmar"))
 }

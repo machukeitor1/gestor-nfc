@@ -10,6 +10,12 @@ Desarrollado por Cristian Machuca, desde Chillán, Chile — [github.com/machuke
   y volcado de memoria. Copiar el contenido a otro tag o guardarlo como plantilla.
 - **Escribir**: URL, redes sociales (15), Wi‑Fi, contacto (vCard), texto, teléfono, SMS, email,
   ubicación (Google Maps o geo:) y abrir app (AAR). Muestra cuánto ocupa y si cabe en cada NTAG.
+- **Reseña en Google**: el tag abre directo el formulario para evaluar tu empresa
+  (enlace del Perfil de Empresa o Place ID).
+- **Idiomas**: español, inglés y portugués según el idioma del teléfono (otros idiomas → inglés).
+  En Android 13+ se puede elegir solo para la app en Ajustes → Apps → Gestor NFC → Idioma.
+- **Automatizaciones**: tags que al acercarlos (con la app cerrada) ejecutan acciones en el teléfono:
+  linterna, modo de sonido, volumen, brillo, temporizador, abrir app o enlace, y paneles de Wi‑Fi/Bluetooth.
 - **Plantillas**: guardar cualquier contenido y escribirlo una vez o **en serie**
   (muchos tags seguidos, opcionalmente protegiendo cada uno con contraseña).
 - **Proteger**: contraseña contra escritura (poner / cambiar / quitar) en NTAG21x y Ultralight EV1,
@@ -27,6 +33,15 @@ Desarrollado por Cristian Machuca, desde Chillán, Chile — [github.com/machuke
 3. Conectar un teléfono con NFC (con depuración USB) y ▶ *Run*.
 
 > El emulador no tiene NFC: hay que probar en un teléfono real.
+
+## Pruebas
+
+La lógica que no necesita un tag (redes sociales, Wi‑Fi, vCard, contraseñas, NTAG, coordenadas,
+automatizaciones) tiene pruebas unitarias:
+
+```
+./gradlew test
+```
 
 ## Estructura
 

@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import cl.machukeitor.gestornfc.R
+import cl.machukeitor.gestornfc.i18n.tr
 
 private const val GITHUB_URL = "https://github.com/machukeitor1"
 
@@ -51,8 +52,8 @@ fun AboutScreen(onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Acerca de") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } },
+                title = { Text(S.about) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, S.back) } },
             )
         },
         contentWindowInsets = WindowInsets(0),
@@ -73,23 +74,27 @@ fun AboutScreen(onBack: () -> Unit) {
             }
             Text("Gestor NFC", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             if (version.isNotEmpty()) {
-                Text("Versión $version", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(tr("Versión", "Version", "Versão") + " $version", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Text(
-                "Lee, escribe y protege tus tags NFC.",
+                tr("Lee, escribe y protege tus tags NFC.", "Read, write and protect your NFC tags.", "Leia, grave e proteja suas tags NFC."),
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 8.dp),
             )
             Text(
-                "Desarrollado por Cristian Machuca, desde Chillán, Chile.",
+                tr(
+                    "Desarrollado por Cristian Machuca, desde Chillán, Chile.",
+                    "Developed by Cristian Machuca, from Chillán, Chile.",
+                    "Desenvolvido por Cristian Machuca, de Chillán, Chile.",
+                ),
                 style = MaterialTheme.typography.bodyLarge,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 16.dp),
             )
             Button(onClick = { runCatching { uriHandler.openUri(GITHUB_URL) } }, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.AutoMirrored.Filled.OpenInNew, null, Modifier.size(18.dp))
-                Text("Visita mi GitHub", Modifier.padding(start = 8.dp))
+                Text(tr("Visita mi GitHub", "Visit my GitHub", "Visite meu GitHub"), Modifier.padding(start = 8.dp))
             }
             Text(
                 "github.com/machukeitor1",

@@ -6,6 +6,7 @@ import android.nfc.TagLostException
 import android.nfc.tech.NfcA
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import cl.machukeitor.gestornfc.i18n.tr
 import java.security.MessageDigest
 
 /**
@@ -74,13 +75,13 @@ object Ntag {
 
     fun setPassword(tag: Tag, pwd: ByteArray): WriteResult = withTag(tag) { s, model ->
         val cfg = s.readOrNull(model.cfg0)
-            ?: return@withTag WriteResult.Failure("No se pudo leer la configuración del tag.")
+            ?: return@withTag WriteResult.Failure(tr("No se pudo leer la configuración del tag.", "Couldn't read the tag configuration.", "Não foi possível ler a configuração da tag."))
         if (cfg[3].u() <= model.userEnd) {
-            return@withTag WriteResult.Failure("Este tag ya tiene contraseña. Usa \"Cambiar contraseña\".")
+            return@withTag WriteResult.Failure(tr("Este tag ya tiene contraseña. Usa \"Cambiar contraseña\".", "This tag already has a password. Use \"Change password\".", "Esta tag já tem senha. Use \"Alterar senha\"."))
         }
         val access = cfg[4].u()
         if (access and 0x40 != 0) {
-            return@withTag WriteResult.Failure("La configuración de este tag está bloqueada de fábrica o permanentemente; no admite contraseña.")
+            return@withTag WriteResult.Failure(tr("La configuración de este tag está bloqueada de fábrica o permanentemente; no admite contraseña.", "This tag's configuration is locked (factory or permanent); it can't take a password.", "A configuração desta tag está bloqueada (de fábrica ou permanentemente); não aceita senha."))
         }
         s.write(model.pwdPage, pwd)
         s.write(model.packPage, byteArrayOf(0, 0, 0, 0))
@@ -88,13 +89,13 @@ object Ntag {
         s.write(model.cfg1, byteArrayOf((access and 0x78).toByte(), cfg[5], cfg[6], cfg[7]))
         // AUTH0 al final: es lo que activa la protección.
         s.write(model.cfg0, byteArrayOf(cfg[0], cfg[1], cfg[2], PROTECT_FROM_PAGE.toByte()))
-        WriteResult.Success("Contraseña activada. Desde ahora el tag solo se puede modificar con la contraseña.")
+        WriteResult.Success(tr("Contraseña activada. Desde ahora el tag solo se puede modificar con la contraseña.", "Password enabled. From now on the tag can only be changed with the password.", "Senha ativada. A partir de agora a tag só pode ser modificada com a senha."))
     }
 
     fun changePassword(tag: Tag, oldPwd: ByteArray, newPwd: ByteArray): WriteResult = withTag(tag) { s, model ->
         if (!s.auth(oldPwd)) return@withTag WriteResult.WrongPassword
         s.write(model.pwdPage, newPwd)
-        WriteResult.Success("Contraseña cambiada.")
+        WriteResult.Success(tr("Contraseña cambiada.", "Password changed.", "Senha alterada."))
     }
 
     fun removePassword(tag: Tag, pwd: ByteArray): WriteResult = withTag(tag) { s, model ->
@@ -102,7 +103,7 @@ object Ntag {
         val cfg = s.read(model.cfg0)
         s.write(model.cfg0, byteArrayOf(cfg[0], cfg[1], cfg[2], AUTH0_DISABLED.toByte()))
         s.write(model.pwdPage, byteArrayOf(-1, -1, -1, -1)) // valor de fábrica: FF FF FF FF
-        WriteResult.Success("Contraseña quitada. El tag vuelve a estar libre.")
+        WriteResult.Success(tr("Contraseña quitada. El tag vuelve a estar libre.", "Password removed. The tag is open again.", "Senha removida. A tag está livre novamente."))
     }
 
     /** Escribe un mensaje NDEF página por página, autenticándose antes. */
@@ -110,7 +111,7 @@ object Ntag {
         val tlv = ndefTlv(message.toByteArray())
         if (tlv.size > model.userBytes) {
             return@withTag WriteResult.Failure(
-                "No cabe: el contenido ocupa ${message.byteArrayLength} bytes y el tag admite ~${model.userBytes - 5}."
+                Msg.doesNotFit(message.byteArrayLength, model.userBytes - 5)
             )
         }
         if (!s.auth(pwd)) return@withTag WriteResult.WrongPassword
@@ -121,7 +122,7 @@ object Ntag {
         s.write(FIRST_USER_PAGE, byteArrayOf(0x03, 0x00, 0xFE.toByte(), 0x00))
         for (i in 1 until pages) s.write(FIRST_USER_PAGE + i, padded.copyOfRange(i * 4, i * 4 + 4))
         s.write(FIRST_USER_PAGE, padded.copyOfRange(0, 4))
-        WriteResult.Success("Se grabaron ${message.byteArrayLength} bytes.", usedPassword = true)
+        WriteResult.Success(Msg.written(message.byteArrayLength), usedPassword = true)
     }
 
     private fun ndefTlv(ndef: ByteArray): ByteArray = ByteArrayOutputStream().apply {
@@ -139,22 +140,22 @@ object Ntag {
         Session(tag).use { s ->
             val model = s.model()
             if (model == null || !model.hasConfig) {
-                WriteResult.Failure("Este tag no admite contraseña. Funciona con NTAG213/215/216 y Ultralight EV1.")
+                WriteResult.Failure(tr("Este tag no admite contraseña. Funciona con NTAG213/215/216 y Ultralight EV1.", "This tag doesn't support passwords. It works with NTAG213/215/216 and Ultralight EV1.", "Esta tag não suporta senha. Funciona com NTAG213/215/216 e Ultralight EV1."))
             } else {
                 block(s, model)
             }
         }
     } catch (e: TagLostException) {
-        WriteResult.Failure("Se perdió el contacto con el tag. Mantenlo quieto e intenta de nuevo.", tagLost = true)
+        WriteResult.Failure(Msg.tagLostHold, tagLost = true)
     } catch (e: SecurityException) {
-        WriteResult.Failure("Se perdió el contacto con el tag. Aléjalo y vuelve a acercarlo.", tagLost = true)
+        WriteResult.Failure(Msg.tagLostAway, tagLost = true)
     } catch (e: IOException) {
-        WriteResult.Failure("Error de comunicación con el tag: ${e.message ?: "sin detalle"}", tagLost = true)
+        WriteResult.Failure(Msg.commError(e.message), tagLost = true)
     }
 
     /** Conexión NfcA con los comandos que se usan aquí. */
     private class Session(private val tag: Tag) : AutoCloseable {
-        private var nfcA: NfcA = NfcA.get(tag) ?: throw IOException("El tag no es NFC‑A")
+        private var nfcA: NfcA = NfcA.get(tag) ?: throw IOException(tr("El tag no es NFC‑A", "The tag isn't NFC‑A", "A tag não é NFC‑A"))
         private var model: Model? = null
 
         init {
@@ -183,7 +184,7 @@ object Ntag {
 
         fun read(page: Int): ByteArray {
             val r = nfcA.transceive(byteArrayOf(0x30, page.toByte()))
-            if (r.size < 16) throw IOException("El tag rechazó la lectura de la página $page")
+            if (r.size < 16) throw IOException(tr("El tag rechazó la lectura de la página $page", "The tag rejected reading page $page", "A tag recusou a leitura da página $page"))
             return r
         }
 
@@ -199,7 +200,7 @@ object Ntag {
         fun write(page: Int, data: ByteArray) {
             val r = nfcA.transceive(byteArrayOf(0xA2.toByte(), page.toByte()) + data)
             if (r.size == 1 && (r[0].u() and 0x0F) != 0x0A) {
-                throw IOException("El tag rechazó la escritura de la página $page (¿protegida?)")
+                throw IOException(tr("El tag rechazó la escritura de la página $page (¿protegida?)", "The tag rejected writing page $page (protected?)", "A tag recusou a escrita da página $page (protegida?)"))
             }
         }
 
@@ -217,9 +218,11 @@ object Ntag {
 }
 
 /** Cómo escribe el usuario la contraseña. El chip siempre usa 4 bytes. */
-enum class PasswordMode(val label: String) {
-    TEXT("Texto / PIN"),
-    HEX("Hex (8 caracteres)");
+enum class PasswordMode(private val es: String, private val en: String, private val pt: String) {
+    TEXT("Texto / PIN", "Text / PIN", "Texto / PIN"),
+    HEX("Hex (8 caracteres)", "Hex (8 characters)", "Hex (8 caracteres)");
+
+    val label get() = tr(es, en, pt)
 
     /** Convierte lo escrito a los 4 bytes del chip, o null si no es válido. */
     fun toBytes(input: String): ByteArray? = when (this) {
@@ -234,7 +237,7 @@ enum class PasswordMode(val label: String) {
     fun error(input: String): String? = when {
         input.isEmpty() -> null
         toBytes(input) != null -> null
-        this == TEXT -> "Mínimo 4 caracteres"
-        else -> "Deben ser exactamente 8 caracteres hex (0‑9, A‑F)"
+        this == TEXT -> tr("Mínimo 4 caracteres", "At least 4 characters", "Mínimo de 4 caracteres")
+        else -> tr("Deben ser exactamente 8 caracteres hex (0‑9, A‑F)", "Must be exactly 8 hex characters (0‑9, A‑F)", "Devem ser exatamente 8 caracteres hex (0‑9, A‑F)")
     }
 }

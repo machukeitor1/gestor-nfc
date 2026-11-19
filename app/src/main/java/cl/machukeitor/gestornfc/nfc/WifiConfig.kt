@@ -1,11 +1,19 @@
 package cl.machukeitor.gestornfc.nfc
 
+import cl.machukeitor.gestornfc.i18n.tr
 import java.io.ByteArrayOutputStream
 
-enum class WifiAuth(val label: String, val authType: Int, val encryptionType: Int) {
-    WPA2("WPA2", 0x0020, 0x0008),
-    WPA_WPA2("WPA/WPA2", 0x0022, 0x000C),
-    OPEN("Abierta (sin contraseña)", 0x0001, 0x0001);
+enum class WifiAuth(val authType: Int, val encryptionType: Int) {
+    WPA2(0x0020, 0x0008),
+    WPA_WPA2(0x0022, 0x000C),
+    OPEN(0x0001, 0x0001);
+
+    val label: String
+        get() = when (this) {
+            WPA2 -> "WPA2"
+            WPA_WPA2 -> "WPA/WPA2"
+            OPEN -> tr("Abierta (sin contraseña)", "Open (no password)", "Aberta (sem senha)")
+        }
 
     companion object {
         fun fromAuthType(value: Int): WifiAuth = when {

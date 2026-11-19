@@ -38,7 +38,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import cl.machukeitor.gestornfc.i18n.tr
 import cl.machukeitor.gestornfc.nfc.WritePayload
+import cl.machukeitor.gestornfc.ui.S
 
 /** Capacidad NDEF útil aproximada de los chips más comunes. */
 private val CHIP_CAPACITIES = listOf("NTAG213" to 137, "NTAG215" to 496, "NTAG216" to 868)
@@ -59,14 +61,14 @@ fun FormScaffold(
     onWrite: (WritePayload) -> Unit,
     extraPreview: @Composable ColumnScope.() -> Unit = {},
     allowTemplate: Boolean = true,
-    writeLabel: String = "Escribir en tag",
+    writeLabel: String = S.writeToTag,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val saveTemplate = LocalSaveTemplate.current
     var askName by remember { mutableStateOf(false) }
     if (askName && payload != null) {
         NameDialog(
-            title = "Guardar como plantilla",
+            title = S.saveAsTemplate,
             initial = payload.summary.substringAfter(": ").take(40),
             onDismiss = { askName = false },
             onConfirm = { saveTemplate(it, payload); askName = false },
@@ -77,7 +79,7 @@ fun FormScaffold(
             TopAppBar(
                 title = { Text(title) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, S.back) }
                 },
             )
         },
@@ -109,7 +111,7 @@ fun FormScaffold(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Icon(Icons.Filled.BookmarkAdd, null)
-                    Text("Guardar como plantilla", Modifier.padding(start = 8.dp))
+                    Text(S.saveAsTemplate, Modifier.padding(start = 8.dp))
                 }
             }
         }
@@ -123,11 +125,11 @@ fun NameDialog(title: String, initial: String, onDismiss: () -> Unit, onConfirm:
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
-        text = { FormField(name, { name = it }, "Nombre") },
+        text = { FormField(name, { name = it }, S.name) },
         confirmButton = {
-            TextButton(onClick = { onConfirm(name) }, enabled = name.isNotBlank()) { Text("Guardar") }
+            TextButton(onClick = { onConfirm(name) }, enabled = name.isNotBlank()) { Text(S.save) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(S.cancel) } },
     )
 }
 
@@ -136,7 +138,7 @@ private fun SizePreview(payload: WritePayload?) {
     val size = payload?.sizeBytes ?: return
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
         Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Ocupa $size bytes", style = MaterialTheme.typography.titleSmall)
+            Text(tr("Ocupa $size bytes", "Takes $size bytes", "Ocupa $size bytes"), style = MaterialTheme.typography.titleSmall)
             Text(
                 CHIP_CAPACITIES.joinToString("   ") { (chip, cap) -> "$chip ${if (size <= cap) "✔" else "✘"}" },
                 style = MaterialTheme.typography.bodySmall,

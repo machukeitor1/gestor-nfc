@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.automirrored.filled.ShortText
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Email
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.RateReview
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Card
@@ -37,29 +39,59 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import cl.machukeitor.gestornfc.i18n.tr
+import cl.machukeitor.gestornfc.ui.S
 
-/** [tool] = va en la sección "Herramientas" en vez de "Contenido". */
+/** [tool] = va en la sección "Herramientas" en vez de "Contenido". Textos en español, inglés y portugués. */
 enum class WriteType(
     val route: String,
-    val title: String,
-    val description: String,
+    private val titles: Triple<String, String, String>,
+    private val descriptions: Triple<String, String, String>,
     val icon: ImageVector,
     val tool: Boolean = false,
 ) {
-    URL("url", "URL / Web", "Abre una página web", Icons.Filled.Link),
-    SOCIAL("social", "Redes sociales", "Instagram, WhatsApp, TikTok…", Icons.Filled.Share),
-    WIFI("wifi", "Wi‑Fi", "Conectarse a una red", Icons.Filled.Wifi),
-    CONTACT("contact", "Contacto", "Guardar una tarjeta de contacto", Icons.Filled.Person),
-    TEXT("text", "Texto", "Un texto cualquiera", Icons.AutoMirrored.Filled.ShortText),
-    PHONE("phone", "Teléfono", "Llamar a un número", Icons.Filled.Phone),
-    SMS("sms", "SMS", "Mensaje de texto prellenado", Icons.AutoMirrored.Filled.Message),
-    EMAIL("email", "Email", "Correo prellenado", Icons.Filled.Email),
-    LOCATION("location", "Ubicación", "Abrir un punto en el mapa", Icons.Filled.Place),
-    APP("app", "Abrir app", "Abre una app instalada (Android)", Icons.Filled.Apps),
-    TEMPLATES("templates", "Plantillas", "Contenidos guardados y escritura en serie", Icons.Filled.Bookmarks, tool = true),
-    PROTECT("protect", "Proteger", "Contraseña o bloqueo permanente", Icons.Filled.Lock, tool = true),
-    ERASE("erase", "Borrar / formatear", "Dejar el tag vacío", Icons.Filled.DeleteSweep, tool = true),
+    URL("url", Triple("URL / Web", "URL / Web", "URL / Web"),
+        Triple("Abre una página web", "Opens a web page", "Abre uma página web"), Icons.Filled.Link),
+    SOCIAL("social", Triple("Redes sociales", "Social networks", "Redes sociais"),
+        Triple("Instagram, WhatsApp, TikTok…", "Instagram, WhatsApp, TikTok…", "Instagram, WhatsApp, TikTok…"), Icons.Filled.Share),
+    REVIEW("review", Triple("Reseña en Google", "Google review", "Avaliação no Google"),
+        Triple("Que tus clientes evalúen tu empresa", "Let customers review your business", "Seus clientes avaliam sua empresa"),
+        Icons.Filled.RateReview),
+    WIFI("wifi", Triple("Wi‑Fi", "Wi‑Fi", "Wi‑Fi"),
+        Triple("Conectarse a una red", "Connect to a network", "Conectar a uma rede"), Icons.Filled.Wifi),
+    CONTACT("contact", Triple("Contacto", "Contact", "Contato"),
+        Triple("Guardar una tarjeta de contacto", "Save a contact card", "Salvar um cartão de contato"), Icons.Filled.Person),
+    TEXT("text", Triple("Texto", "Text", "Texto"),
+        Triple("Un texto cualquiera", "Any text", "Um texto qualquer"), Icons.AutoMirrored.Filled.ShortText),
+    PHONE("phone", Triple("Teléfono", "Phone", "Telefone"),
+        Triple("Llamar a un número", "Call a number", "Ligar para um número"), Icons.Filled.Phone),
+    SMS("sms", Triple("SMS", "SMS", "SMS"),
+        Triple("Mensaje de texto prellenado", "Prefilled text message", "Mensagem de texto pré-preenchida"),
+        Icons.AutoMirrored.Filled.Message),
+    EMAIL("email", Triple("Email", "Email", "Email"),
+        Triple("Correo prellenado", "Prefilled email", "Email pré-preenchido"), Icons.Filled.Email),
+    LOCATION("location", Triple("Ubicación", "Location", "Localização"),
+        Triple("Abrir un punto en el mapa", "Open a point on the map", "Abrir um ponto no mapa"), Icons.Filled.Place),
+    APP("app", Triple("Abrir app", "Open app", "Abrir app"),
+        Triple("Abre una app instalada (Android)", "Opens an installed app (Android)", "Abre um app instalado (Android)"),
+        Icons.Filled.Apps),
+    AUTOMATION("automation", Triple("Automatización", "Automation", "Automação"),
+        Triple("Linterna, sonido, brillo, temporizador…", "Flashlight, sound, brightness, timer…", "Lanterna, som, brilho, temporizador…"),
+        Icons.Filled.Bolt),
+    TEMPLATES("templates", Triple("Plantillas", "Templates", "Modelos"),
+        Triple("Contenidos guardados y escritura en serie", "Saved content and batch writing", "Conteúdos salvos e gravação em série"),
+        Icons.Filled.Bookmarks, tool = true),
+    PROTECT("protect", Triple("Proteger", "Protect", "Proteger"),
+        Triple("Contraseña o bloqueo permanente", "Password or permanent lock", "Senha ou bloqueio permanente"),
+        Icons.Filled.Lock, tool = true),
+    ERASE("erase", Triple("Borrar / formatear", "Erase / format", "Apagar / formatar"),
+        Triple("Dejar el tag vacío", "Leave the tag empty", "Deixar a tag vazia"), Icons.Filled.DeleteSweep, tool = true);
+
+    val title get() = tr(titles.first, titles.second, titles.third)
+    val description get() = tr(descriptions.first, descriptions.second, descriptions.third)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -68,8 +100,8 @@ fun WriteMenuScreen(nfcBanner: @Composable () -> Unit, onSelect: (WriteType) -> 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("¿Qué quieres escribir?") },
-                actions = { IconButton(onClick = onAbout) { Icon(Icons.Filled.Info, "Acerca de") } },
+                title = { Text(tr("¿Qué quieres escribir?", "What do you want to write?", "O que você quer gravar?")) },
+                actions = { IconButton(onClick = onAbout) { Icon(Icons.Filled.Info, S.about) } },
             )
         },
         contentWindowInsets = WindowInsets(0),
@@ -85,9 +117,9 @@ fun WriteMenuScreen(nfcBanner: @Composable () -> Unit, onSelect: (WriteType) -> 
                 items(WriteType.entries.filter { !it.tool }) { WriteTypeCard(it, onSelect) }
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(
-                        "Herramientas",
+                        tr("Herramientas", "Tools", "Ferramentas"),
                         style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(top = 8.dp),
+                        modifier = Modifier.padding(top = 8.dp).semantics { heading() },
                     )
                 }
                 items(WriteType.entries.filter { it.tool }) { WriteTypeCard(it, onSelect) }

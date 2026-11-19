@@ -45,6 +45,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -59,6 +62,7 @@ import androidx.navigation.navArgument
 import cl.machukeitor.gestornfc.NfcViewModel
 import cl.machukeitor.gestornfc.TagJob
 import cl.machukeitor.gestornfc.WriteState
+import cl.machukeitor.gestornfc.i18n.tr
 import cl.machukeitor.gestornfc.nfc.PasswordMode
 import cl.machukeitor.gestornfc.nfc.SocialNetwork
 import cl.machukeitor.gestornfc.nfc.WritePayload
@@ -99,7 +103,7 @@ fun AppRoot(viewModel: NfcViewModel, nfcAdapter: NfcAdapter?) {
 
     val saveTemplate: (String, WritePayload) -> Unit = { name, payload ->
         viewModel.saveTemplate(name, payload)
-        Toast.makeText(context, "Plantilla \"$name\" guardada", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, templateSaved(name), Toast.LENGTH_SHORT).show()
     }
 
     CompositionLocalProvider(LocalSaveTemplate provides saveTemplate) {
@@ -110,19 +114,19 @@ fun AppRoot(viewModel: NfcViewModel, nfcAdapter: NfcAdapter?) {
                     selected = route == ROUTE_READ,
                     onClick = { navController.switchTab(ROUTE_READ) },
                     icon = { Icon(Icons.Filled.Contactless, null) },
-                    label = { Text("Leer") },
+                    label = { Text(tr("Leer", "Read", "Ler")) },
                 )
                 NavigationBarItem(
                     selected = route.startsWith(ROUTE_WRITE),
                     onClick = { navController.switchTab(ROUTE_WRITE) },
                     icon = { Icon(Icons.Filled.Edit, null) },
-                    label = { Text("Escribir") },
+                    label = { Text(tr("Escribir", "Write", "Gravar")) },
                 )
                 NavigationBarItem(
                     selected = route == ROUTE_HISTORY,
                     onClick = { navController.switchTab(ROUTE_HISTORY) },
                     icon = { Icon(Icons.Filled.History, null) },
-                    label = { Text("Historial") },
+                    label = { Text(tr("Historial", "History", "Histórico")) },
                 )
             }
         },
@@ -138,11 +142,11 @@ fun AppRoot(viewModel: NfcViewModel, nfcAdapter: NfcAdapter?) {
                         onClear = viewModel::clearRead,
                         onAbout = openAbout,
                         onCopy = { ndef ->
-                            viewModel.startWrite(WritePayload.Raw(ndef.raw!!, "Copia · ${ndef.summary}"))
+                            viewModel.startWrite(WritePayload.Raw(ndef.raw!!, tr("Copia", "Copy", "Cópia") + " · ${ndef.summary}"))
                         },
                         onSaveTemplate = { ndef, name ->
                             viewModel.saveTemplate(name, ndef.summary, ndef.raw!!)
-                            Toast.makeText(context, "Plantilla \"$name\" guardada", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, templateSaved(name), Toast.LENGTH_SHORT).show()
                         },
                         nfcBanner = { NfcStatusBanner(nfcAdapter) },
                     )
@@ -164,7 +168,7 @@ fun AppRoot(viewModel: NfcViewModel, nfcAdapter: NfcAdapter?) {
                         onWriteAgain = { e -> e.ndef?.let { viewModel.startWrite(WritePayload.Raw(it, e.title)) } },
                         onSaveTemplate = { e, name ->
                             e.ndef?.let { viewModel.saveTemplate(name, e.summary, it) }
-                            Toast.makeText(context, "Plantilla \"$name\" guardada", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, templateSaved(name), Toast.LENGTH_SHORT).show()
                         },
                     )
                 }
@@ -221,6 +225,11 @@ fun AppRoot(viewModel: NfcViewModel, nfcAdapter: NfcAdapter?) {
     )
 }
 
+private val cancelLabel get() = tr("Cancelar", "Cancel", "Cancelar")
+
+private fun templateSaved(name: String) =
+    tr("Plantilla \"$name\" guardada", "Template \"$name\" saved", "Modelo \"$name\" salvo")
+
 private fun NavHostController.switchTab(route: String) = navigate(route) {
     popUpTo(graph.findStartDestination().id) { saveState = true }
     launchSingleTop = true
@@ -243,28 +252,42 @@ private fun WriteDialog(
             AlertDialog(
                 onDismissRequest = {}, // no se cierra tocando fuera: evita cancelar por accidente
                 icon = { Icon(Icons.Filled.Nfc, null, Modifier.size(48.dp)) },
-                title = { Text(if (series) "Escritura en serie" else "Acerca el tag") },
+                title = { Text(if (series) tr("Escritura en serie", "Batch writing", "Gravação em série") else tr("Acerca el tag", "Tap the tag", "Aproxime a tag")) },
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         if (series) {
                             Text(
-                                "$seriesCount escritos",
+                                tr("$seriesCount escritos", "$seriesCount written", "$seriesCount gravadas"),
                                 style = MaterialTheme.typography.headlineMedium,
                                 color = MaterialTheme.colorScheme.primary,
+                                // TalkBack anuncia cada tag escrito sin que haya que mirar la pantalla.
+                                modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite },
                             )
-                            Text("Acerca el siguiente tag. Retira cada uno al sentir la vibración.")
+                            Text(
+                                tr(
+                                    "Acerca el siguiente tag. Retira cada uno al sentir la vibración.",
+                                    "Tap the next tag. Remove each one when you feel the vibration.",
+                                    "Aproxime a próxima tag. Retire cada uma ao sentir a vibração.",
+                                )
+                            )
                             seriesError?.let {
-                                Text("Último intento: $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                                Text(tr("Último intento", "Last attempt", "Última tentativa") + ": $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                             }
                         } else {
-                            Text("Apoya el tag en la parte trasera del teléfono y no lo muevas hasta que termine.")
+                            Text(
+                                tr(
+                                    "Apoya el tag en la parte trasera del teléfono y no lo muevas hasta que termine.",
+                                    "Hold the tag against the back of the phone and don't move it until it finishes.",
+                                    "Encoste a tag na parte de trás do celular e não a mova até terminar.",
+                                )
+                            )
                         }
                         Text(state.job.summary, style = MaterialTheme.typography.bodySmall)
                         LinearProgressIndicator(Modifier.fillMaxWidth())
                     }
                 },
                 confirmButton = {},
-                dismissButton = { TextButton(onClick = onDismiss) { Text(if (series) "Terminar" else "Cancelar") } },
+                dismissButton = { TextButton(onClick = onDismiss) { Text(if (series) tr("Terminar", "Finish", "Concluir") else cancelLabel) } },
             )
         }
         // key: tras un intento fallido el diálogo se recrea con el campo vacío.
@@ -282,10 +305,10 @@ private fun WriteDialog(
                 title = {
                     Text(
                         when {
-                            ok && isWrite -> "¡Tag escrito!"
-                            ok -> "Listo"
-                            isWrite -> "No se pudo escribir"
-                            else -> "No se pudo completar"
+                            ok && isWrite -> tr("¡Tag escrito!", "Tag written!", "Tag gravada!")
+                            ok -> tr("Listo", "Done", "Pronto")
+                            isWrite -> tr("No se pudo escribir", "Couldn't write", "Não foi possível gravar")
+                            else -> tr("No se pudo completar", "Couldn't complete", "Não foi possível concluir")
                         }
                     )
                 },
@@ -294,7 +317,7 @@ private fun WriteDialog(
                         when (result) {
                             is WriteResult.Success -> result.message + if (isWrite) "\n\n${state.job.summary}" else ""
                             is WriteResult.Failure -> result.message
-                            WriteResult.NeedsPassword, WriteResult.WrongPassword -> "Contraseña incorrecta."
+                            WriteResult.NeedsPassword, WriteResult.WrongPassword -> tr("Contraseña incorrecta.", "Wrong password.", "Senha incorreta.")
                         }
                     )
                 },
@@ -302,14 +325,14 @@ private fun WriteDialog(
                     TextButton(onClick = onRetry) {
                         Text(
                             when {
-                                ok && isWrite -> "Escribir otro igual"
-                                ok -> "Repetir en otro tag"
-                                else -> "Reintentar"
+                                ok && isWrite -> tr("Escribir otro igual", "Write another one", "Gravar outra igual")
+                                ok -> tr("Repetir en otro tag", "Repeat on another tag", "Repetir em outra tag")
+                                else -> tr("Reintentar", "Retry", "Tentar de novo")
                             }
                         )
                     }
                 },
-                dismissButton = { TextButton(onClick = onDismiss) { Text("Cerrar") } },
+                dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cerrar", "Close", "Fechar")) } },
             )
         }
     }
@@ -324,27 +347,33 @@ private fun PasswordDialog(wrong: Boolean, onDismiss: () -> Unit, onPassword: (B
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Filled.Lock, null) },
-        title = { Text("Este tag tiene contraseña") },
+        title = { Text(tr("Este tag tiene contraseña", "This tag has a password", "Esta tag tem senha")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Para modificarlo, ingresa la contraseña de escritura.")
+                Text(
+                    tr(
+                        "Para modificarlo, ingresa la contraseña de escritura.",
+                        "To change it, enter the write password.",
+                        "Para modificá-la, digite a senha de escrita.",
+                    )
+                )
                 PasswordModeSelector(mode) { mode = it; value = "" }
                 PasswordField(
-                    value, { value = it }, "Contraseña", mode,
-                    extraError = if (wrong && value.isEmpty()) "Contraseña incorrecta, intenta de nuevo" else null,
+                    value, { value = it }, tr("Contraseña", "Password", "Senha"), mode,
+                    extraError = if (wrong && value.isEmpty()) tr("Contraseña incorrecta, intenta de nuevo", "Wrong password, try again", "Senha incorreta, tente de novo") else null,
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = keep, onCheckedChange = { keep = it })
-                    Text("Recordar para este tag")
+                    Text(tr("Recordar para este tag", "Remember for this tag", "Lembrar para esta tag"))
                 }
             }
         },
         confirmButton = {
             TextButton(onClick = { bytes?.let { onPassword(it, keep) } }, enabled = bytes != null) {
-                Text("Desbloquear y escribir")
+                Text(tr("Desbloquear y escribir", "Unlock and write", "Desbloquear e gravar"))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(cancelLabel) } },
     )
 }
 
@@ -366,11 +395,14 @@ fun NfcStatusBanner(nfcAdapter: NfcAdapter?) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Warning, null)
             Box(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text(if (nfcAdapter == null) "Este teléfono no tiene NFC." else "El NFC está desactivado.")
+                Text(
+                    if (nfcAdapter == null) tr("Este teléfono no tiene NFC.", "This phone has no NFC.", "Este celular não tem NFC.")
+                    else tr("El NFC está desactivado.", "NFC is turned off.", "O NFC está desativado.")
+                )
             }
             if (nfcAdapter != null) {
                 TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_NFC_SETTINGS)) }) {
-                    Text("Activar")
+                    Text(tr("Activar", "Turn on", "Ativar"))
                 }
             }
         }

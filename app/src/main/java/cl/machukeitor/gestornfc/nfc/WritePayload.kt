@@ -3,7 +3,11 @@ package cl.machukeitor.gestornfc.nfc
 import android.net.Uri
 import android.nfc.NdefMessage
 import android.nfc.NdefRecord
+import cl.machukeitor.gestornfc.i18n.tr
 import java.util.Locale
+
+/** Paquete de esta app (para el AAR de las automatizaciones). */
+const val APP_PACKAGE = "cl.machukeitor.gestornfc"
 
 /** Contenido a grabar en un tag. Cada tipo sabe convertirse en un mensaje NDEF. */
 sealed interface WritePayload {
@@ -19,7 +23,7 @@ sealed interface WritePayload {
     }
 
     data class Text(val text: String, val language: String = Locale.getDefault().language) : WritePayload {
-        override val summary get() = "Texto: $text"
+        override val summary get() = tr("Texto", "Text", "Texto") + ": $text"
         override fun toMessage() = NdefMessage(NdefRecord.createTextRecord(language, text))
     }
 
@@ -39,7 +43,7 @@ sealed interface WritePayload {
         val address: String,
     ) : WritePayload {
         val fullName get() = listOf(firstName, lastName).filter { it.isNotBlank() }.joinToString(" ")
-        override val summary get() = "Contacto: $fullName"
+        override val summary get() = tr("Contacto", "Contact", "Contato") + ": $fullName"
 
         fun toVcard(): String = buildString {
             append("BEGIN:VCARD\nVERSION:3.0\n")
@@ -70,19 +74,36 @@ sealed interface WritePayload {
         } else {
             "geo:$coords?q=$coords" + if (label.isNotBlank()) "(${Uri.encode(label.trim())})" else ""
         }
-        override val summary get() = "Ubicación: " + label.ifBlank { coords }
+        override val summary get() = tr("Ubicación", "Location", "Localização") + ": " + label.ifBlank { coords }
         override fun toMessage() = NdefMessage(NdefRecord.createUri(uri))
     }
 
     /** Android Application Record: abre la app (o su ficha en Play Store si no está instalada). Solo Android. */
     data class App(val packageName: String, val appName: String) : WritePayload {
-        override val summary get() = "Abrir app: " + appName.ifBlank { packageName }
+        override val summary get() = tr("Abrir app", "Open app", "Abrir app") + ": " + appName.ifBlank { packageName }
         override fun toMessage() = NdefMessage(NdefRecord.createApplicationRecord(packageName))
+    }
+
+    /**
+     * Automatización: registro con las acciones + AAR, para que Android abra Gestor NFC
+     * (o su ficha en Play Store) al acercar el tag.
+     */
+    data class Automation(val name: String, val actions: List<AutoAction>) : WritePayload {
+        override val summary get() = tr("Automatización", "Automation", "Automação") + ": " +
+            name.ifBlank { actions.joinToString(", ") { it.label } }
+        override fun toMessage() = NdefMessage(
+            NdefRecord.createExternal(
+                AutoAction.DOMAIN,
+                AutoAction.TYPE,
+                AutoAction.toJson(name.trim(), actions).toByteArray(Charsets.UTF_8),
+            ),
+            NdefRecord.createApplicationRecord(APP_PACKAGE),
+        )
     }
 
     /** Deja el tag vacío (formateado como NDEF, sin contenido). */
     data object Empty : WritePayload {
-        override val summary get() = "Borrar contenido"
+        override val summary get() = tr("Borrar contenido", "Erase content", "Apagar conteúdo")
         override fun toMessage() = NdefMessage(NdefRecord(NdefRecord.TNF_EMPTY, null, null, null))
     }
 

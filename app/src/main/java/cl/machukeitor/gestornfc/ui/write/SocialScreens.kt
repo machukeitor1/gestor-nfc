@@ -7,9 +7,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,7 +46,9 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import cl.machukeitor.gestornfc.i18n.tr
 import cl.machukeitor.gestornfc.nfc.SocialNetwork
+import cl.machukeitor.gestornfc.ui.S
 import cl.machukeitor.gestornfc.nfc.WritePayload
 
 @Composable
@@ -66,8 +67,8 @@ fun SocialListScreen(onBack: () -> Unit, onSelect: (SocialNetwork) -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Redes sociales") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } },
+                title = { Text(tr("Redes sociales", "Social networks", "Redes sociais")) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, S.back) } },
             )
         },
         contentWindowInsets = WindowInsets(0),
@@ -93,21 +94,21 @@ private fun CountryPicker(selected: Int, enabled: Boolean, onSelect: (Int) -> Un
             onClick = { expanded = true },
             enabled = enabled,
             contentPadding = PaddingValues(horizontal = 12.dp),
-            modifier = Modifier.fillMaxHeight(),
+            modifier = Modifier.heightIn(min = 56.dp),
         ) {
             val country = COUNTRIES.getOrNull(selected)
-            Text(if (country != null) "${country.flag} +${country.code}" else "🌐 Otro")
-            Icon(Icons.Filled.ArrowDropDown, "Elegir país")
+            Text(if (country != null) "${country.flag} +${country.code}" else "🌐 " + tr("Otro", "Other", "Outro"))
+            Icon(Icons.Filled.ArrowDropDown, tr("Elegir país", "Choose country", "Escolher país"))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             COUNTRIES.forEachIndexed { i, c ->
                 DropdownMenuItem(
-                    text = { Text("${c.flag}  ${c.name}  +${c.code}") },
+                    text = { Text("${c.flag}  ${c.localName}  +${c.code}") },
                     onClick = { onSelect(i); expanded = false },
                 )
             }
             DropdownMenuItem(
-                text = { Text("🌐  Otro (escribir código)") },
+                text = { Text("🌐  " + tr("Otro (escribir código)", "Other (type code)", "Outro (digitar código)")) },
                 onClick = { onSelect(-1); expanded = false },
             )
         }
@@ -118,7 +119,7 @@ private fun CountryPicker(selected: Int, enabled: Boolean, onSelect: (Int) -> Un
 fun SocialFormScreen(net: SocialNetwork, onBack: () -> Unit, onWrite: (WritePayload) -> Unit) {
     var value by rememberSaveable { mutableStateOf("") }
     /** Índice en [COUNTRIES]; -1 = "Otro" (código escrito a mano). */
-    var countryIndex by rememberSaveable { mutableIntStateOf(0) }
+    var countryIndex by rememberSaveable { mutableIntStateOf(defaultCountryIndex()) }
     var customCode by rememberSaveable { mutableStateOf("") }
     var message by rememberSaveable { mutableStateOf("") }
     val uriHandler = LocalUriHandler.current
@@ -150,10 +151,10 @@ fun SocialFormScreen(net: SocialNetwork, onBack: () -> Unit, onWrite: (WritePayl
         onWrite = onWrite,
         extraPreview = {
             url?.let {
-                Text("Se grabará: $it", style = MaterialTheme.typography.bodySmall)
+                Text(tr("Se grabará", "Will write", "Será gravado") + ": $it", style = MaterialTheme.typography.bodySmall)
                 OutlinedButton(onClick = { runCatching { uriHandler.openUri(it) } }, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.AutoMirrored.Filled.OpenInNew, null, Modifier.size(18.dp))
-                    Text("Probar enlace", Modifier.padding(start = 8.dp))
+                    Text(tr("Probar enlace", "Test link", "Testar link"), Modifier.padding(start = 8.dp))
                 }
             }
         },
@@ -161,8 +162,19 @@ fun SocialFormScreen(net: SocialNetwork, onBack: () -> Unit, onWrite: (WritePayl
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             NetworkBadge(net, 48)
             Text(
-                if (net == SocialNetwork.SPOTIFY) "Pega el enlace de tu perfil, playlist o canción."
-                else "Escribe tu usuario o pega el enlace completo; la app lo limpia.",
+                if (net == SocialNetwork.SPOTIFY) {
+                    tr(
+                        "Pega el enlace de tu perfil, playlist o canción.",
+                        "Paste the link to your profile, playlist or song.",
+                        "Cole o link do seu perfil, playlist ou música.",
+                    )
+                } else {
+                    tr(
+                        "Escribe tu usuario o pega el enlace completo; la app lo limpia.",
+                        "Type your username or paste the full link; the app cleans it up.",
+                        "Digite seu usuário ou cole o link completo; o app o limpa.",
+                    )
+                },
                 style = MaterialTheme.typography.bodyMedium,
             )
         }
@@ -172,7 +184,8 @@ fun SocialFormScreen(net: SocialNetwork, onBack: () -> Unit, onWrite: (WritePayl
                     selected = countryIndex,
                     enabled = !international,
                     onSelect = { countryIndex = it },
-                    modifier = Modifier.padding(top = 8.dp).height(56.dp),
+                    // heightIn: con letra grande del sistema el botón crece en vez de recortar el texto.
+                    modifier = Modifier.padding(top = 8.dp).heightIn(min = 56.dp),
                 )
                 FormField(
                     value, { value = it }, net.fieldLabel,
@@ -181,25 +194,29 @@ fun SocialFormScreen(net: SocialNetwork, onBack: () -> Unit, onWrite: (WritePayl
             }
             if (countryIndex < 0 && !international) {
                 FormField(
-                    customCode, { customCode = it.filter(Char::isDigit).take(4) }, "Código de país",
+                    customCode, { customCode = it.filter(Char::isDigit).take(4) }, tr("Código de país", "Country code", "Código do país"),
                     prefix = "+", keyboardType = KeyboardType.Number, modifier = Modifier.width(160.dp),
                 )
             }
             if (international) {
                 Text(
-                    "El número ya trae código de país, se usará tal cual.",
+                    tr(
+                        "El número ya trae código de país, se usará tal cual.",
+                        "The number already includes a country code; it will be used as is.",
+                        "O número já inclui o código do país; será usado como está.",
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            FormField(message, { message = it }, "Mensaje inicial (opcional)", singleLine = false, minLines = 2)
+            FormField(message, { message = it }, tr("Mensaje inicial (opcional)", "Opening message (optional)", "Mensagem inicial (opcional)"), singleLine = false, minLines = 2)
         } else {
             FormField(
                 value, { value = it }, net.fieldLabel,
                 placeholder = net.placeholder,
                 keyboardType = if (net == SocialNetwork.SPOTIFY) KeyboardType.Uri else KeyboardType.Text,
                 prefix = if (net == SocialNetwork.SPOTIFY || net == SocialNetwork.DISCORD) null else "@",
-                error = if (value.isNotBlank() && normalized == null) "No es válido" else null,
+                error = if (value.isNotBlank() && normalized == null) tr("No es válido", "Not valid", "Não é válido") else null,
             )
         }
     }

@@ -18,7 +18,12 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Nfc
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+import cl.machukeitor.gestornfc.nfc.AutoAction
+import cl.machukeitor.gestornfc.nfc.AutomationRunner
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.remember
 import cl.machukeitor.gestornfc.ui.write.NameDialog
@@ -44,6 +49,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -52,7 +61,9 @@ import cl.machukeitor.gestornfc.nfc.InfoSection
 import cl.machukeitor.gestornfc.nfc.NdefInfo
 import cl.machukeitor.gestornfc.nfc.NdefRecordInfo
 import cl.machukeitor.gestornfc.nfc.TagInfo
+import cl.machukeitor.gestornfc.i18n.tr
 import cl.machukeitor.gestornfc.ui.EmptyState
+import cl.machukeitor.gestornfc.ui.S
 import java.text.DateFormat
 import java.util.Date
 
@@ -72,15 +83,15 @@ fun ReadScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Leer tag") },
+                title = { Text(tr("Leer tag", "Read tag", "Ler tag")) },
                 actions = {
                     if (info != null || error != null) {
                         TextButton(onClick = onClear) {
                             Icon(Icons.Filled.Refresh, null, Modifier.size(18.dp))
-                            Text("Leer otro", Modifier.padding(start = 6.dp))
+                            Text(tr("Leer otro", "Read another", "Ler outra"), Modifier.padding(start = 6.dp))
                         }
                     }
-                    IconButton(onClick = onAbout) { Icon(Icons.Filled.Info, "Acerca de") }
+                    IconButton(onClick = onAbout) { Icon(Icons.Filled.Info, S.about) }
                 },
             )
         },
@@ -91,9 +102,9 @@ fun ReadScreen(
             if (reading) {
                 LinearProgressIndicator(Modifier.fillMaxWidth())
                 Text(
-                    "Leyendo… no muevas el tag",
+                    tr("Leyendo… no muevas el tag", "Reading… don't move the tag", "Lendo… não mova a tag"),
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp).semantics { liveRegion = LiveRegionMode.Polite },
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
             error?.let {
@@ -107,8 +118,12 @@ fun ReadScreen(
             if (info == null) {
                 EmptyState(
                     icon = { Icon(Icons.Filled.Nfc, null, Modifier.size(96.dp), tint = MaterialTheme.colorScheme.primary) },
-                    title = "Acerca un tag",
-                    subtitle = "Apóyalo en la parte trasera del teléfono para ver toda su información.",
+                    title = tr("Acerca un tag", "Tap a tag", "Aproxime uma tag"),
+                    subtitle = tr(
+                        "Apóyalo en la parte trasera del teléfono para ver toda su información.",
+                        "Hold it against the back of the phone to see all its information.",
+                        "Encoste-a na parte de trás do celular para ver todas as informações.",
+                    ),
                 )
             } else {
                 TagDetails(info, readCount, onCopy, onSaveTemplate)
@@ -130,7 +145,13 @@ private fun TagDetails(
     ) {
         item { SummaryCard(info, readCount) }
         info.ndef?.let { ndef -> item { NdefCard(ndef, onCopy, onSaveTemplate) } }
-            ?: item { InfoCard(InfoSection("NDEF", listOf("Estado" to "Este tag no tiene formato NDEF (o el teléfono no lo reconoce)"))) }
+            ?: item { InfoCard(InfoSection("NDEF", listOf(
+                tr("Estado", "Status", "Estado") to tr(
+                    "Este tag no tiene formato NDEF (o el teléfono no lo reconoce)",
+                    "This tag isn't NDEF formatted (or the phone doesn't recognize it)",
+                    "Esta tag não tem formato NDEF (ou o celular não a reconhece)",
+                ),
+            ))) }
         items(info.sections) { InfoCard(it) }
         if (info.memory.isNotEmpty() || info.memoryNote != null) item { MemoryCard(info) }
     }
@@ -142,18 +163,24 @@ private fun SummaryCard(info: TagInfo, readCount: Int) {
     val clipboard = LocalClipboardManager.current
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(info.chip, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(info.chip, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, modifier = Modifier.semantics { heading() })
             Text(info.manufacturer, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (info.writeProtected) {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("🔒 Protegido con contraseña de escritura", fontWeight = FontWeight.Bold)
+                        Text(
+                            "🔒 " + tr("Protegido con contraseña de escritura", "Protected with a write password", "Protegida com senha de escrita"),
+                            fontWeight = FontWeight.Bold,
+                        )
                         Text(
                             if (info.passwordSaved) {
-                                "La contraseña está guardada en este teléfono: por eso aquí puedes escribirlo " +
-                                    "sin que te la pida. Otros teléfonos no podrán modificarlo."
+                                tr(
+                                    "La contraseña está guardada en este teléfono: por eso aquí puedes escribirlo sin que te la pida. Otros teléfonos no podrán modificarlo.",
+                                    "The password is saved on this phone, so you can write it here without being asked. Other phones won't be able to change it.",
+                                    "A senha está salva neste celular, por isso aqui você pode gravá-la sem que ela seja pedida. Outros celulares não poderão modificá-la.",
+                                )
                             } else {
-                                "Para modificarlo se pedirá la contraseña."
+                                tr("Para modificarlo se pedirá la contraseña.", "The password will be required to change it.", "A senha será pedida para modificá-la.")
                             },
                             style = MaterialTheme.typography.bodySmall,
                         )
@@ -166,14 +193,14 @@ private fun SummaryCard(info: TagInfo, readCount: Int) {
                     Text(info.uid, fontFamily = FontFamily.Monospace)
                 }
                 IconButton(onClick = { clipboard.setText(AnnotatedString(info.uid.replace(":", ""))) }) {
-                    Icon(Icons.Filled.ContentCopy, "Copiar UID")
+                    Icon(Icons.Filled.ContentCopy, tr("Copiar UID", "Copy UID", "Copiar UID"))
                 }
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 info.technologies.forEach { AssistChip(onClick = {}, label = { Text(it) }) }
             }
             Text(
-                "Lectura #$readCount · " + DateFormat.getTimeInstance().format(Date(info.scannedAt)),
+                tr("Lectura", "Read", "Leitura") + " #$readCount · " + DateFormat.getTimeInstance().format(Date(info.scannedAt)),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -186,7 +213,7 @@ private fun NdefCard(ndef: NdefInfo, onCopy: (NdefInfo) -> Unit, onSaveTemplate:
     var askName by remember { mutableStateOf(false) }
     if (askName) {
         NameDialog(
-            title = "Guardar como plantilla",
+            title = S.saveAsTemplate,
             initial = ndef.summary.substringAfter(": ").take(40),
             onDismiss = { askName = false },
             onConfirm = { onSaveTemplate(ndef, it); askName = false },
@@ -194,30 +221,40 @@ private fun NdefCard(ndef: NdefInfo, onCopy: (NdefInfo) -> Unit, onSaveTemplate:
     }
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Contenido (NDEF)", style = MaterialTheme.typography.titleMedium)
-            KeyValue("Tipo", ndef.type)
-            KeyValue("Escritura", if (ndef.writable) "Permitida" else "Bloqueado (solo lectura)")
-            KeyValue("Se puede bloquear", if (ndef.canMakeReadOnly) "Sí" else "No")
-            Text("Espacio usado: ${ndef.usedSize} de ${ndef.maxSize} bytes", style = MaterialTheme.typography.bodySmall)
+            Text(tr("Contenido (NDEF)", "Content (NDEF)", "Conteúdo (NDEF)"), style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
+            KeyValue(tr("Tipo", "Type", "Tipo"), ndef.type)
+            KeyValue(
+                tr("Escritura", "Writing", "Escrita"),
+                if (ndef.writable) tr("Permitida", "Allowed", "Permitida")
+                else tr("Bloqueado (solo lectura)", "Locked (read-only)", "Bloqueada (somente leitura)"),
+            )
+            KeyValue(tr("Se puede bloquear", "Can be locked", "Pode ser bloqueada"), if (ndef.canMakeReadOnly) S.yes else S.no)
+            Text(
+                tr(
+                    "Espacio usado: ${ndef.usedSize} de ${ndef.maxSize} bytes",
+                    "Space used: ${ndef.usedSize} of ${ndef.maxSize} bytes",
+                    "Espaço usado: ${ndef.usedSize} de ${ndef.maxSize} bytes",
+                ),
+                style = MaterialTheme.typography.bodySmall)
             LinearProgressIndicator(
                 progress = { if (ndef.maxSize > 0) ndef.usedSize.toFloat() / ndef.maxSize else 0f },
                 modifier = Modifier.fillMaxWidth(),
             )
             if (ndef.records.isEmpty()) {
-                Text("El tag está vacío.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(tr("El tag está vacío.", "The tag is empty.", "A tag está vazia."), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             ndef.records.forEachIndexed { i, record ->
                 HorizontalDivider()
                 RecordView(i + 1, record)
             }
-            if (ndef.records.any { it.kind != "Vacío" } && ndef.raw != null) {
+            if (ndef.hasContent && ndef.raw != null) {
                 HorizontalDivider()
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { onCopy(ndef) }, modifier = Modifier.weight(1f)) {
-                        Text("Copiar a otro tag")
+                        Text(tr("Copiar a otro tag", "Copy to another tag", "Copiar para outra tag"))
                     }
                     OutlinedButton(onClick = { askName = true }, modifier = Modifier.weight(1f)) {
-                        Text("Guardar plantilla")
+                        Text(tr("Guardar plantilla", "Save template", "Salvar modelo"))
                     }
                 }
             }
@@ -230,7 +267,7 @@ private fun RecordView(index: Int, record: NdefRecordInfo) {
     val uriHandler = LocalUriHandler.current
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
-            "Registro $index · ${record.kind} · ${record.sizeBytes} B",
+            tr("Registro", "Record", "Registro") + " $index · ${record.kind} · ${record.sizeBytes} B",
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
         )
@@ -239,7 +276,19 @@ private fun RecordView(index: Int, record: NdefRecordInfo) {
         record.openUri?.let { uri ->
             TextButton(onClick = { runCatching { uriHandler.openUri(uri) } }) {
                 Icon(Icons.AutoMirrored.Filled.OpenInNew, null, Modifier.size(18.dp))
-                Text("Abrir", Modifier.padding(start = 6.dp))
+                Text(S.open, Modifier.padding(start = 6.dp))
+            }
+        }
+        // Con la app abierta el tag no dispara la automatización: se ofrece ejecutarla a mano.
+        record.automationJson?.let { json ->
+            val context = LocalContext.current
+            TextButton(onClick = {
+                val actions = runCatching { AutoAction.fromJson(json).second }.getOrDefault(emptyList())
+                val results = AutomationRunner(context).run(actions)
+                Toast.makeText(context, results.joinToString("\n"), Toast.LENGTH_LONG).show()
+            }) {
+                Icon(Icons.Filled.PlayArrow, null, Modifier.size(18.dp))
+                Text(tr("Ejecutar ahora", "Run now", "Executar agora"), Modifier.padding(start = 6.dp))
             }
         }
     }
@@ -249,7 +298,7 @@ private fun RecordView(index: Int, record: NdefRecordInfo) {
 private fun InfoCard(section: InfoSection) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(section.title, style = MaterialTheme.typography.titleMedium)
+            Text(section.title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
             section.items.forEach { (k, v) -> KeyValue(k, v) }
         }
     }
@@ -261,9 +310,11 @@ private fun MemoryCard(info: TagInfo) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Memoria (${info.memory.size} páginas)", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                Text(
+                    tr("Memoria", "Memory", "Memória") + " (${info.memory.size} " + tr("páginas", "pages", "páginas") + ")",
+                    style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 IconButton(onClick = { expanded = !expanded }) {
-                    Icon(if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, if (expanded) "Ocultar" else "Mostrar")
+                    Icon(if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore, if (expanded) tr("Ocultar", "Hide", "Ocultar") else tr("Mostrar", "Show", "Mostrar"))
                 }
             }
             info.memoryNote?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }

@@ -8,7 +8,12 @@ import android.nfc.tech.Ndef
 import android.nfc.tech.NfcA
 import android.nfc.tech.NfcF
 import android.nfc.tech.NfcV
+import cl.machukeitor.gestornfc.i18n.tr
 import java.io.IOException
+
+private val unknownLabel get() = tr("Desconocido", "Unknown", "Desconhecido")
+private val yes get() = tr("Sí", "Yes", "Sim")
+private val no get() = tr("No", "No", "Não")
 
 /**
  * Lee todo lo que se puede saber de un tag, al estilo NXP TagInfo.
@@ -21,7 +26,7 @@ object TagInspector {
         val techs = tag.techList.map { it.substringAfterLast('.') }
         val sections = mutableListOf<InfoSection>()
 
-        var chip = "Desconocido"
+        var chip: String? = null
         var memory = emptyList<MemoryRow>()
         var memoryNote: String? = null
         var writeProtected = false
@@ -46,7 +51,7 @@ object TagInspector {
                 listOf(
                     "ATQA" to nfcA.atqa.reversedArray().toHex(""),
                     "SAK" to "%02X".format(nfcA.sak.toInt()),
-                    "Transceive máx." to "${nfcA.maxTransceiveLength} bytes",
+                    tr("Transceive máx.", "Max transceive", "Transceive máx.") to "${nfcA.maxTransceiveLength} bytes",
                 ),
             )
             if (nfcA.sak.toInt() == 0x00 && IsoDep.get(tag) == null) {
@@ -69,34 +74,39 @@ object TagInspector {
             sections += InfoSection(
                 "MIFARE Classic",
                 listOf(
-                    "Memoria" to "${mc.size} bytes",
-                    "Sectores" to mc.sectorCount.toString(),
-                    "Bloques" to mc.blockCount.toString(),
-                    "Nota" to "Los datos están protegidos por claves de sector. " +
-                        "Si el teléfono no tiene chip NFC de NXP, puede que no lo lea.",
+                    tr("Memoria", "Memory", "Memória") to "${mc.size} bytes",
+                    tr("Sectores", "Sectors", "Setores") to mc.sectorCount.toString(),
+                    tr("Bloques", "Blocks", "Blocos") to mc.blockCount.toString(),
+                    tr("Nota", "Note", "Nota") to tr(
+                        "Los datos están protegidos por claves de sector. Si el teléfono no tiene chip NFC de NXP, puede que no lo lea.",
+                        "Data is protected by sector keys. If the phone doesn't have an NXP NFC chip, it may not read it.",
+                        "Os dados são protegidos por chaves de setor. Se o celular não tiver chip NFC da NXP, talvez não consiga ler.",
+                    ),
                 ),
             )
         }
         if (MifareClassic.get(tag) == null && "MifareClassic" !in techs &&
             NfcA.get(tag)?.sak?.toInt()?.let { it == 0x08 || it == 0x18 } == true
         ) {
-            chip = "MIFARE Classic (este teléfono no lo soporta)"
+            chip = "MIFARE Classic " + tr(
+                "(este teléfono no lo soporta)", "(not supported by this phone)", "(este celular não suporta)",
+            )
         }
 
         IsoDep.get(tag)?.let { iso ->
-            if (chip == "Desconocido") chip = "ISO 14443‑4 (tarjeta inteligente)"
+            if (chip == null) chip = "ISO 14443‑4 " + tr("(tarjeta inteligente)", "(smart card)", "(cartão inteligente)")
             sections += InfoSection(
                 "ISO 14443‑4 (IsoDep)",
                 buildList {
                     iso.historicalBytes?.let { add("Historical bytes" to it.toHex(" ")) }
                     iso.hiLayerResponse?.let { add("Hi‑layer response" to it.toHex(" ")) }
-                    add("APDU extendido" to if (iso.isExtendedLengthApduSupported) "Sí" else "No")
+                    add(tr("APDU extendido", "Extended APDU", "APDU estendido") to if (iso.isExtendedLengthApduSupported) yes else no)
                 },
             )
         }
 
         NfcV.get(tag)?.let { v ->
-            if (chip == "Desconocido") chip = "ISO 15693 (NFC‑V)"
+            if (chip == null) chip = "ISO 15693 (NFC‑V)"
             sections += InfoSection(
                 "ISO 15693 (NfcV)",
                 listOf("DSFID" to "%02X".format(v.dsfId.toInt()), "Response flags" to "%02X".format(v.responseFlags.toInt())),
@@ -104,18 +114,18 @@ object TagInspector {
         }
 
         NfcF.get(tag)?.let { f ->
-            if (chip == "Desconocido") chip = "FeliCa (NFC‑F)"
+            if (chip == null) chip = "FeliCa (NFC‑F)"
             sections += InfoSection(
                 "FeliCa (NfcF)",
                 listOf("Manufacturer" to f.manufacturer.toHex(" "), "System code" to f.systemCode.toHex(" ")),
             )
         }
 
-        if (chip == "Desconocido" && MifareUltralight.get(tag) != null) chip = "MIFARE Ultralight (compatible)"
+        if (chip == null && MifareUltralight.get(tag) != null) chip = "MIFARE Ultralight (compatible)"
 
         return TagInfo(
             uid = uidBytes.toHex(),
-            chip = chip,
+            chip = chip ?: unknownLabel,
             manufacturer = manufacturerName(uidBytes),
             technologies = techs,
             sections = sections,
@@ -145,7 +155,11 @@ object TagInspector {
 
     /** Fabricante según el primer byte del UID (ISO/IEC 7816‑6). Solo vale para UIDs de 7 u 8 bytes. */
     private fun manufacturerName(uid: ByteArray): String {
-        if (uid.size < 7) return "No determinable (UID de ${uid.size} bytes)"
+        if (uid.size < 7) return tr(
+            "No determinable (UID de ${uid.size} bytes)",
+            "Can't be determined (${uid.size}-byte UID)",
+            "Não determinável (UID de ${uid.size} bytes)",
+        )
         return when (uid[0].u()) {
             0x02 -> "STMicroelectronics"
             0x04 -> "NXP Semiconductors"
@@ -153,7 +167,7 @@ object TagInspector {
             0x07 -> "Texas Instruments"
             0x16 -> "EM Microelectronic"
             0x28 -> "Sony"
-            else -> "Desconocido (0x%02X)".format(uid[0].u())
+            else -> "$unknownLabel (0x%02X)".format(uid[0].u())
         }
     }
 }
@@ -169,6 +183,9 @@ private class UltralightReader(private val tag: Tag, private var nfcA: NfcA, pri
         val writeProtected: Boolean = false,
     )
 
+    private val dynLockLabel get() = tr("Bloqueo dinámico", "Dynamic lock", "Bloqueio dinâmico")
+    private val configLabel get() = tr("Configuración", "Configuration", "Configuração")
+
     fun read(): Result {
         val sections = mutableListOf<InfoSection>()
         try {
@@ -183,10 +200,15 @@ private class UltralightReader(private val tag: Tag, private var nfcA: NfcA, pri
                 sections += InfoSection(
                     "GET_VERSION",
                     listOf(
-                        "Respuesta" to version.toHex(" "),
-                        "Fabricante" to if (version[1].u() == 0x04) "NXP" else "0x%02X".format(version[1].u()),
-                        "Tipo" to when (version[2].u()) { 0x03 -> "Ultralight"; 0x04 -> "NTAG"; else -> "0x%02X".format(version[2].u()) },
-                        "Memoria" to "~${1 shl (version[6].u() shr 1)} bytes",
+                        tr("Respuesta", "Response", "Resposta") to version.toHex(" "),
+                        tr("Fabricante", "Vendor", "Fabricante") to
+                            if (version[1].u() == 0x04) "NXP" else "0x%02X".format(version[1].u()),
+                        tr("Tipo", "Type", "Tipo") to when (version[2].u()) {
+                            0x03 -> "Ultralight"
+                            0x04 -> "NTAG"
+                            else -> "0x%02X".format(version[2].u())
+                        },
+                        tr("Memoria", "Memory", "Memória") to "~${1 shl (version[6].u() shr 1)} bytes",
                     ),
                 )
             }
@@ -195,31 +217,45 @@ private class UltralightReader(private val tag: Tag, private var nfcA: NfcA, pri
             if (version != null) {
                 val sig = transceiveOrNull(byteArrayOf(0x3C, 0x00))
                 if (sig == null) reconnect()
+                val sigLabel = tr("Firma NXP", "NXP signature", "Assinatura NXP")
                 sections += InfoSection(
-                    "Originalidad",
+                    tr("Originalidad", "Originality", "Originalidade"),
                     if (sig != null && sig.size == 32) {
                         val ok = NxpSignature.verify(uid, sig)
                         listOf(
-                            "Firma NXP" to if (ok) "✔ Válida: chip NXP original" else "✘ No válida: probablemente un clon",
-                            "Firma" to sig.toHex(""),
+                            sigLabel to if (ok) {
+                                tr("✔ Válida: chip NXP original", "✔ Valid: genuine NXP chip", "✔ Válida: chip NXP original")
+                            } else {
+                                tr("✘ No válida: probablemente un clon", "✘ Invalid: probably a clone", "✘ Inválida: provavelmente um clone")
+                            },
+                            tr("Firma", "Signature", "Assinatura") to sig.toHex(""),
                         )
                     } else {
-                        listOf("Firma NXP" to "El chip no entregó firma (puede ser un clon)")
+                        listOf(
+                            sigLabel to tr(
+                                "El chip no entregó firma (puede ser un clon)",
+                                "The chip returned no signature (may be a clone)",
+                                "O chip não retornou assinatura (pode ser um clone)",
+                            )
+                        )
                     },
                 )
             }
 
             val totalPages = model?.pages ?: if (MifareUltralight.get(tag)?.type == MifareUltralight.TYPE_ULTRALIGHT_C) 48 else 16
             val pages = readPages(totalPages)
-            val memoryNote = if (pages.size < totalPages)
-                "Se leyeron ${pages.size} de $totalPages páginas; el resto está protegido con contraseña."
-            else null
+            val memoryNote = if (pages.size < totalPages) tr(
+                "Se leyeron ${pages.size} de $totalPages páginas; el resto está protegido con contraseña.",
+                "Read ${pages.size} of $totalPages pages; the rest is password protected.",
+                "Foram lidas ${pages.size} de $totalPages páginas; o resto está protegido por senha.",
+            ) else null
 
             sections += lockSection(pages)
             if (model?.hasConfig == true) configSection(pages, model)?.let { sections += it }
 
             return Result(
-                chip = model?.name ?: version?.let { "Desconocido (versión ${it.toHex(" ")})" }
+                chip = model?.name
+                    ?: version?.let { "$unknownLabel (" + tr("versión", "version", "versão") + " ${it.toHex(" ")})" }
                     ?: if (MifareUltralight.get(tag)?.type == MifareUltralight.TYPE_ULTRALIGHT_C) "MIFARE Ultralight C" else "MIFARE Ultralight",
                 sections = sections,
                 memory = pages.mapIndexed { i, p -> MemoryRow(i, p.toHex(" "), ascii(p), pageNote(i, totalPages, model)) },
@@ -230,7 +266,16 @@ private class UltralightReader(private val tag: Tag, private var nfcA: NfcA, pri
             )
         } catch (e: Exception) {
             // IOException si se pierde el tag; SecurityException ("Tag is out of date") si se alejó y volvió.
-            return Result("Tipo 2 (lectura interrumpida)", sections, emptyList(), "Se perdió el contacto con el tag. Mantenlo quieto hasta que termine.")
+            return Result(
+                tr("Tipo 2 (lectura interrumpida)", "Type 2 (read interrupted)", "Tipo 2 (leitura interrompida)"),
+                sections,
+                emptyList(),
+                tr(
+                    "Se perdió el contacto con el tag. Mantenlo quieto hasta que termine.",
+                    "Lost contact with the tag. Hold it still until it finishes.",
+                    "O contato com a tag foi perdido. Mantenha-a parada até terminar.",
+                ),
+            )
         } finally {
             runCatching { nfcA.close() }
         }
@@ -259,15 +304,20 @@ private class UltralightReader(private val tag: Tag, private var nfcA: NfcA, pri
         if (pages.size > 2) {
             val lock0 = pages[2][2].u()
             val lock1 = pages[2][3].u()
-            items += "Bytes de bloqueo estático" to "%02X %02X".format(lock0, lock1)
-            items += "Páginas 3‑15 bloqueadas" to if (lock0 == 0 && lock1 == 0) "Ninguna" else "Sí (parcial o total)"
+            items += tr("Bytes de bloqueo estático", "Static lock bytes", "Bytes de bloqueio estático") to
+                "%02X %02X".format(lock0, lock1)
+            items += tr("Páginas 3‑15 bloqueadas", "Pages 3‑15 locked", "Páginas 3‑15 bloqueadas") to
+                if (lock0 == 0 && lock1 == 0) tr("Ninguna", "None", "Nenhuma")
+                else tr("Sí (parcial o total)", "Yes (partial or full)", "Sim (parcial ou total)")
         }
         if (pages.size > 3) {
             val cc = pages[3]
             items += "Capability Container" to cc.toHex(" ")
-            items += "Acceso de escritura (CC)" to if (cc[3].u() == 0x00) "Libre" else "Solo lectura (0x%02X)".format(cc[3].u())
+            items += tr("Acceso de escritura (CC)", "Write access (CC)", "Acesso de escrita (CC)") to
+                if (cc[3].u() == 0x00) tr("Libre", "Open", "Livre")
+                else tr("Solo lectura", "Read-only", "Somente leitura") + " (0x%02X)".format(cc[3].u())
         }
-        return InfoSection("Bloqueo", items)
+        return InfoSection(tr("Bloqueo", "Lock", "Bloqueio"), items)
     }
 
     private fun configSection(pages: List<ByteArray>, model: Ntag.Model): InfoSection? {
@@ -275,8 +325,14 @@ private class UltralightReader(private val tag: Tag, private var nfcA: NfcA, pri
         val cfg1 = model.pages - 3
         val dynLock = model.pages - 5
         if (pages.size <= cfg1) return InfoSection(
-            "Configuración",
-            listOf("Estado" to "No se pudo leer la configuración (protegida con contraseña)"),
+            configLabel,
+            listOf(
+                tr("Estado", "Status", "Estado") to tr(
+                    "No se pudo leer la configuración (protegida con contraseña)",
+                    "Couldn't read the configuration (password protected)",
+                    "Não foi possível ler a configuração (protegida por senha)",
+                )
+            ),
         )
         val auth0 = pages[cfg0][3].u()
         val access = pages[cfg1][0].u()
@@ -284,30 +340,39 @@ private class UltralightReader(private val tag: Tag, private var nfcA: NfcA, pri
         val cfgLock = access and 0x40 != 0
         val passwordOn = auth0 < model.pages
         return InfoSection(
-            "Configuración",
+            configLabel,
             buildList {
                 if (model.name.startsWith("NTAG21") && model.name != "NTAG210" && model.name != "NTAG212")
-                    add("Bloqueo dinámico" to pages[dynLock].copyOfRange(0, 3).toHex(" "))
+                    add(dynLockLabel to pages[dynLock].copyOfRange(0, 3).toHex(" "))
                 add("AUTH0" to "0x%02X".format(auth0))
                 add(
-                    "Contraseña" to if (passwordOn)
-                        "Activa desde la página $auth0 (${if (prot) "protege lectura y escritura" else "protege solo escritura"})"
-                    else "Sin contraseña"
+                    tr("Contraseña", "Password", "Senha") to if (passwordOn) {
+                        val scope = if (prot) {
+                            tr("protege lectura y escritura", "protects reading and writing", "protege leitura e escrita")
+                        } else {
+                            tr("protege solo escritura", "protects writing only", "protege somente escrita")
+                        }
+                        tr("Activa desde la página $auth0", "Active from page $auth0", "Ativa a partir da página $auth0") +
+                            " ($scope)"
+                    } else tr("Sin contraseña", "No password", "Sem senha")
                 )
-                add("Configuración bloqueada" to if (cfgLock) "Sí (permanente)" else "No")
+                add(
+                    tr("Configuración bloqueada", "Configuration locked", "Configuração bloqueada") to
+                        if (cfgLock) tr("Sí (permanente)", "Yes (permanent)", "Sim (permanente)") else no
+                )
             },
         )
     }
 
     private fun pageNote(page: Int, total: Int, model: Ntag.Model?): String? = when {
         page <= 1 -> "UID"
-        page == 2 -> "UID / bloqueo"
+        page == 2 -> "UID / " + tr("bloqueo", "lock", "bloqueio")
         page == 3 -> "Capability Container"
         model?.hasConfig != true -> null
-        page == total - 5 && model.name.startsWith("NTAG21") && model.name != "NTAG210" && model.name != "NTAG212" -> "Bloqueo dinámico"
+        page == total - 5 && model.name.startsWith("NTAG21") && model.name != "NTAG210" && model.name != "NTAG212" -> dynLockLabel
         page == total - 4 -> "CFG0 (AUTH0)"
         page == total - 3 -> "CFG1 (ACCESS)"
-        page == total - 2 -> "Contraseña (no legible)"
+        page == total - 2 -> tr("Contraseña (no legible)", "Password (not readable)", "Senha (não legível)")
         page == total - 1 -> "PACK"
         else -> null
     }

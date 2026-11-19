@@ -6,6 +6,7 @@ import android.nfc.Tag
 import android.nfc.TagLostException
 import android.nfc.tech.Ndef
 import android.nfc.tech.NdefFormatable
+import cl.machukeitor.gestornfc.i18n.tr
 import java.io.IOException
 
 sealed interface WriteResult {
@@ -41,26 +42,49 @@ object TagWriter {
     fun makeReadOnly(tag: Tag): WriteResult {
         val protection = try { Ntag.probe(tag) } catch (e: Exception) { null }
         if (protection?.writeProtected == true) {
-            return WriteResult.Failure("Este tag tiene contraseña. Quítala primero en \"Proteger\" y luego bloquéalo.")
+            return WriteResult.Failure(
+                tr(
+                    "Este tag tiene contraseña. Quítala primero en \"Proteger\" y luego bloquéalo.",
+                    "This tag has a password. Remove it first in \"Protect\" and then lock it.",
+                    "Esta tag tem senha. Remova-a primeiro em \"Proteger\" e depois bloqueie.",
+                )
+            )
         }
-        val ndef = Ndef.get(tag)
-            ?: return WriteResult.Failure("El tag no tiene formato NDEF. Escríbele algo antes de bloquearlo.")
+        val ndef = Ndef.get(tag) ?: return WriteResult.Failure(
+            tr(
+                "El tag no tiene formato NDEF. Escríbele algo antes de bloquearlo.",
+                "The tag isn't NDEF formatted. Write something to it before locking it.",
+                "A tag não está formatada como NDEF. Grave algo antes de bloqueá-la.",
+            )
+        )
         return try {
             ndef.use {
                 it.connect()
                 when {
-                    !it.isWritable -> WriteResult.Failure("Este tag ya está bloqueado.")
-                    !it.canMakeReadOnly() -> WriteResult.Failure("Este tipo de tag no se puede bloquear.")
-                    it.makeReadOnly() -> WriteResult.Success("Tag bloqueado permanentemente. Ya no se podrá modificar.")
-                    else -> WriteResult.Failure("El tag no aceptó el bloqueo.")
+                    !it.isWritable -> WriteResult.Failure(
+                        tr("Este tag ya está bloqueado.", "This tag is already locked.", "Esta tag já está bloqueada.")
+                    )
+                    !it.canMakeReadOnly() -> WriteResult.Failure(
+                        tr("Este tipo de tag no se puede bloquear.", "This type of tag can't be locked.", "Este tipo de tag não pode ser bloqueado.")
+                    )
+                    it.makeReadOnly() -> WriteResult.Success(
+                        tr(
+                            "Tag bloqueado permanentemente. Ya no se podrá modificar.",
+                            "Tag permanently locked. It can no longer be changed.",
+                            "Tag bloqueada permanentemente. Não poderá mais ser modificada.",
+                        )
+                    )
+                    else -> WriteResult.Failure(
+                        tr("El tag no aceptó el bloqueo.", "The tag didn't accept the lock.", "A tag não aceitou o bloqueio.")
+                    )
                 }
             }
         } catch (e: TagLostException) {
-            WriteResult.Failure("Se perdió el contacto con el tag. Mantenlo quieto e intenta de nuevo.", tagLost = true)
+            WriteResult.Failure(Msg.tagLostHold, tagLost = true)
         } catch (e: SecurityException) {
-            WriteResult.Failure("Se perdió el contacto con el tag. Aléjalo y vuelve a acercarlo.", tagLost = true)
+            WriteResult.Failure(Msg.tagLostAway, tagLost = true)
         } catch (e: IOException) {
-            WriteResult.Failure("No se pudo bloquear: ${e.message ?: "error de comunicación"}", tagLost = true)
+            WriteResult.Failure(Msg.commError(e.message), tagLost = true)
         }
     }
 
@@ -72,34 +96,45 @@ object TagWriter {
                 ndef.use {
                     it.connect()
                     when {
-                        !it.isWritable -> WriteResult.Failure("El tag está bloqueado (solo lectura). No se puede escribir.")
-                        size > it.maxSize -> WriteResult.Failure(
-                            "No cabe: el contenido ocupa $size bytes y el tag admite ${it.maxSize}."
+                        !it.isWritable -> WriteResult.Failure(
+                            tr(
+                                "El tag está bloqueado (solo lectura). No se puede escribir.",
+                                "The tag is locked (read-only). It can't be written.",
+                                "A tag está bloqueada (somente leitura). Não é possível gravar.",
+                            )
                         )
+                        size > it.maxSize -> WriteResult.Failure(Msg.doesNotFit(size, it.maxSize))
                         else -> {
                             it.writeNdefMessage(message)
-                            WriteResult.Success("Se grabaron $size bytes de ${it.maxSize} disponibles.")
+                            WriteResult.Success(Msg.written(size, it.maxSize))
                         }
                     }
                 }
             } else {
-                val formatable = NdefFormatable.get(tag)
-                    ?: return WriteResult.Failure("Este tag no admite NDEF, no se puede escribir con esta app.")
+                val formatable = NdefFormatable.get(tag) ?: return WriteResult.Failure(
+                    tr(
+                        "Este tag no admite NDEF, no se puede escribir con esta app.",
+                        "This tag doesn't support NDEF; it can't be written with this app.",
+                        "Esta tag não suporta NDEF; não pode ser gravada com este app.",
+                    )
+                )
                 formatable.use {
                     it.connect()
                     it.format(message)
                 }
-                WriteResult.Success("Se grabaron $size bytes.")
+                WriteResult.Success(Msg.written(size))
             }
         } catch (e: TagLostException) {
-            WriteResult.Failure("Se perdió el contacto con el tag. Mantén el teléfono quieto sobre él e intenta de nuevo.", tagLost = true)
+            WriteResult.Failure(Msg.tagLostHold, tagLost = true)
         } catch (e: SecurityException) {
             // "Tag is out of date": el tag se alejó y volvió a acercarse durante la escritura.
-            WriteResult.Failure("Se perdió el contacto con el tag. Aléjalo y vuelve a acercarlo.", tagLost = true)
+            WriteResult.Failure(Msg.tagLostAway, tagLost = true)
         } catch (e: FormatException) {
-            WriteResult.Failure("El contenido no es un mensaje NDEF válido.")
+            WriteResult.Failure(
+                tr("El contenido no es un mensaje NDEF válido.", "The content isn't a valid NDEF message.", "O conteúdo não é uma mensagem NDEF válida.")
+            )
         } catch (e: IOException) {
-            WriteResult.Failure("No se pudo escribir: ${e.message ?: "error de comunicación"}", tagLost = true)
+            WriteResult.Failure(Msg.commError(e.message), tagLost = true)
         }
     }
 }

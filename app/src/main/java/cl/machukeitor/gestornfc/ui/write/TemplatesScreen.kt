@@ -44,7 +44,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import cl.machukeitor.gestornfc.data.Template
 import cl.machukeitor.gestornfc.nfc.PasswordMode
+import cl.machukeitor.gestornfc.i18n.tr
 import cl.machukeitor.gestornfc.ui.EmptyState
+import cl.machukeitor.gestornfc.ui.S
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,8 +63,8 @@ fun TemplatesScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Plantillas") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver") } },
+                title = { Text(WriteType.TEMPLATES.title) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, S.back) } },
             )
         },
         contentWindowInsets = WindowInsets(0),
@@ -71,9 +73,12 @@ fun TemplatesScreen(
             Column(Modifier.padding(padding)) {
                 EmptyState(
                     icon = { Icon(Icons.Filled.Bookmarks, null, Modifier.size(96.dp), tint = MaterialTheme.colorScheme.primary) },
-                    title = "No hay plantillas",
-                    subtitle = "En cualquier formulario de Escribir usa \"Guardar como plantilla\", " +
-                        "o guárdala desde el Historial.",
+                    title = tr("No hay plantillas", "No templates", "Nenhum modelo"),
+                    subtitle = tr(
+                        "En cualquier formulario de Escribir usa \"Guardar como plantilla\", o guárdala desde el Historial.",
+                        "In any Write form use \"Save as template\", or save it from History.",
+                        "Em qualquer formulário de Gravar use \"Salvar como modelo\", ou salve pelo Histórico.",
+                    ),
                 )
             }
             return@Scaffold
@@ -104,7 +109,7 @@ fun TemplatesScreen(
     }
     renameFor?.let { t ->
         NameDialog(
-            title = "Renombrar plantilla",
+            title = tr("Renombrar plantilla", "Rename template", "Renomear modelo"),
             initial = t.name,
             onDismiss = { renameFor = null },
             onConfirm = { onRename(t.id, it); renameFor = null },
@@ -136,11 +141,11 @@ private fun TemplateCard(
                     Text("${template.ndef.size} bytes", style = MaterialTheme.typography.labelSmall)
                 }
                 Box {
-                    IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Opciones") }
+                    IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, tr("Opciones", "Options", "Opções")) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        DropdownMenuItem(text = { Text("Renombrar") }, onClick = { menu = false; onRename() })
+                        DropdownMenuItem(text = { Text(S.rename) }, onClick = { menu = false; onRename() })
                         DropdownMenuItem(
-                            text = { Text("Eliminar", color = MaterialTheme.colorScheme.error) },
+                            text = { Text(S.delete, color = MaterialTheme.colorScheme.error) },
                             onClick = { menu = false; onDelete() },
                         )
                     }
@@ -149,11 +154,11 @@ private fun TemplateCard(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onWrite, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Filled.Nfc, null, Modifier.size(18.dp))
-                    Text("Escribir", Modifier.padding(start = 6.dp))
+                    Text(tr("Escribir", "Write", "Gravar"), Modifier.padding(start = 6.dp))
                 }
                 OutlinedButton(onClick = onSeries, modifier = Modifier.weight(1f)) {
                     Icon(Icons.Filled.Repeat, null, Modifier.size(18.dp))
-                    Text("En serie", Modifier.padding(start = 6.dp))
+                    Text(tr("En serie", "Batch", "Em série"), Modifier.padding(start = 6.dp))
                 }
             }
         }
@@ -173,30 +178,33 @@ private fun SeriesDialog(template: Template, onDismiss: () -> Unit, onStart: (By
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Filled.Repeat, null) },
-        title = { Text("Escribir en serie") },
+        title = { Text(tr("Escribir en serie", "Batch writing", "Gravação em série")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "Se grabará \"${template.name}\" en cada tag que acerques, uno tras otro, " +
-                        "hasta que presiones Terminar.",
+                    tr(
+                        "Se grabará \"${template.name}\" en cada tag que acerques, uno tras otro, hasta que presiones Terminar.",
+                        "\"${template.name}\" will be written to every tag you tap, one after another, until you press Finish.",
+                        "\"${template.name}\" será gravado em cada tag que você aproximar, uma após a outra, até tocar em Concluir.",
+                    ),
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = protect, onCheckedChange = { protect = it })
-                    Text("Proteger cada tag con contraseña")
+                    Text(tr("Proteger cada tag con contraseña", "Protect each tag with a password", "Proteger cada tag com senha"))
                 }
                 if (protect) {
                     PasswordModeSelector(mode) { mode = it; pwd = ""; confirm = "" }
-                    PasswordField(pwd, { pwd = it }, "Contraseña", mode)
+                    PasswordField(pwd, { pwd = it }, S.password, mode)
                     PasswordField(
-                        confirm, { confirm = it }, "Repetir contraseña", mode,
-                        extraError = if (confirm.isNotEmpty() && confirm != pwd) "No coincide" else null,
+                        confirm, { confirm = it }, tr("Repetir contraseña", "Repeat password", "Repetir senha"), mode,
+                        extraError = if (confirm.isNotEmpty() && confirm != pwd) tr("No coincide", "Doesn't match", "Não confere") else null,
                     )
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onStart(if (protect) bytes else null) }, enabled = ready) { Text("Comenzar") }
+            TextButton(onClick = { onStart(if (protect) bytes else null) }, enabled = ready) { Text(tr("Comenzar", "Start", "Começar")) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(S.cancel) } },
     )
 }
