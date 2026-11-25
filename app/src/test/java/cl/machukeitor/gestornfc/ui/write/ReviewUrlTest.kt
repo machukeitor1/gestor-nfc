@@ -26,4 +26,17 @@ class ReviewUrlTest {
         assertNull(reviewUrl("hola"))
         assertNull(reviewUrl(""))
     }
+
+    @Test
+    fun `enlace corto de maps se acepta`() {
+        assertEquals("https://maps.app.goo.gl/abc123", reviewUrl("maps.app.goo.gl/abc123"))
+    }
+
+    @Test
+    fun `dominios que imitan a google se rechazan`() {
+        assertNull(reviewUrl("https://g.page.evil.com/r/x/review"))
+        assertNull(reviewUrl("https://evilg.page/r/x/review"))
+        assertNull(reviewUrl("https://g.page@evil.com/review"))
+        assertNull("Place ID demasiado corto", reviewUrl("ChIJabc"))
+    }
 }

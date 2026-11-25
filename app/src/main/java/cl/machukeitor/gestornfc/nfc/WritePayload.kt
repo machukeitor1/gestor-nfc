@@ -61,6 +61,7 @@ sealed interface WritePayload {
         override fun toMessage() = NdefMessage(NdefRecord.createMime("text/vcard", toVcard().toByteArray(Charsets.UTF_8)))
 
         private fun esc(s: String) = s.trim().replace("\\", "\\\\").replace(",", "\\,").replace(";", "\\;")
+            .replace("\r\n", "\\n").replace("\n", "\\n").replace("\r", "\\n")
     }
 
     /**

@@ -73,11 +73,12 @@ enum class SocialNetwork(
             WHATSAPP -> raw.filter { it.isDigit() }.takeIf { it.length >= 8 }
             else -> {
                 val fromUrl = if (raw.contains("/")) {
-                    // Ruta sin query ni fragmento: "instagram.com/usuario/?hl=es" → "usuario"
+                    // Primer segmento de la ruta sin query ni fragmento: "instagram.com/usuario/?hl=es" → "usuario",
+                    // "tiktok.com/@usuario/video/123" → "usuario".
                     raw.substringAfter("://").substringAfter('/', "")
                         .substringBefore('?').substringBefore('#')
                         .split('/')
-                        .lastOrNull { it.isNotBlank() && it != "in" && it != "company" }
+                        .firstOrNull { it.isNotBlank() && it != "in" && it != "company" }
                 } else raw
                 fromUrl?.removePrefix("@")?.trim()?.takeIf { it.isNotEmpty() && it.none(Char::isWhitespace) }
             }

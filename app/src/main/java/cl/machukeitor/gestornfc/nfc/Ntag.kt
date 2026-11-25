@@ -125,7 +125,7 @@ object Ntag {
         WriteResult.Success(Msg.written(message.byteArrayLength), usedPassword = true)
     }
 
-    private fun ndefTlv(ndef: ByteArray): ByteArray = ByteArrayOutputStream().apply {
+    internal fun ndefTlv(ndef: ByteArray): ByteArray = ByteArrayOutputStream().apply {
         write(0x03)
         if (ndef.size < 0xFF) {
             write(ndef.size)

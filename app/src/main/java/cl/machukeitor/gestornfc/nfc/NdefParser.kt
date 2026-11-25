@@ -76,7 +76,7 @@ object NdefParser {
         }
     }
 
-    private fun describeUri(uri: String, size: Int): NdefRecordInfo {
+    internal fun describeUri(uri: String, size: Int): NdefRecordInfo {
         val lower = uri.lowercase()
         val kind = when {
             lower.startsWith("tel:") -> tr("Teléfono", "Phone", "Telefone")
@@ -90,12 +90,13 @@ object NdefParser {
         return NdefRecordInfo(kind, uri, openUri = uri, sizeBytes = size)
     }
 
-    private fun describeText(payload: ByteArray, size: Int): NdefRecordInfo {
+    internal fun describeText(payload: ByteArray, size: Int): NdefRecordInfo {
         val kind = tr("Texto", "Text", "Texto")
         if (payload.isEmpty()) return NdefRecordInfo(kind, "", sizeBytes = size)
         val status = payload[0].u()
         val charset: Charset = if (status and 0x80 == 0) Charsets.UTF_8 else Charsets.UTF_16
-        val langLength = status and 0x3F
+        // Un tag mal grabado puede declarar un idioma más largo que el payload.
+        val langLength = (status and 0x3F).coerceAtMost(payload.size - 1)
         val lang = String(payload, 1, langLength, Charsets.US_ASCII)
         val text = String(payload, 1 + langLength, payload.size - 1 - langLength, charset)
         return NdefRecordInfo(kind, text, listOf(tr("Idioma", "Language", "Idioma") to lang), sizeBytes = size)
@@ -132,14 +133,14 @@ object NdefParser {
         )
     }
 
-    private fun describeVcard(payload: ByteArray, size: Int): NdefRecordInfo {
+    internal fun describeVcard(payload: ByteArray, size: Int): NdefRecordInfo {
         val text = String(payload, Charsets.UTF_8)
         var name: String? = null
         val fields = text.lines().mapNotNull { line ->
             val idx = line.indexOf(':')
             if (idx <= 0) return@mapNotNull null
             val key = line.substring(0, idx).substringBefore(';').uppercase()
-            val value = line.substring(idx + 1).replace("\\,", ",").replace("\\;", ";")
+            val value = line.substring(idx + 1).replace("\\n", " ").replace("\\N", " ").replace("\\,", ",").replace("\\;", ";")
                 .trim(';').replace(";;", " ").replace(';', ' ').trim()
             if (key == "FN") {
                 name = value
