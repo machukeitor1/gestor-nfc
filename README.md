@@ -8,7 +8,7 @@
 ![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.1-7F52FF?logo=kotlin&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?logo=jetpackcompose&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-78%20pasando-success)
+![Tests](https://img.shields.io/badge/tests-98%20pasando-success)
 ![Idiomas](https://img.shields.io/badge/idiomas-es%20·%20en%20·%20pt-informational)
 
 Hecho en Chillán, Chile 🇨🇱 por [Cristian Machuca](https://github.com/machukeitor1)
@@ -44,6 +44,8 @@ Información detallada del tag, al estilo de *NXP TagInfo*:
 - Contenido NDEF interpretado (URL, Wi‑Fi, contacto, texto, automatización…).
 - Estado de bloqueo y contraseña, y volcado de memoria página por página.
 - Copiar el contenido a otro tag o guardarlo como plantilla.
+- Te indica **dónde apoyar el tag** según la antena NFC de tu modelo (Android 14+).
+- Si lees un tag mientras llenas un formulario, la app avisa con "Ver" en vez de sacarte de la pantalla.
 
 ### ✏️ Escribir
 
@@ -59,10 +61,12 @@ Información detallada del tag, al estilo de *NXP TagInfo*:
 | 📝 Texto | Texto libre |
 | 📱 Abrir app | Android Application Record (AAR) |
 
-Antes de escribir, la app muestra **cuánto ocupa el contenido** y si cabe en cada modelo de NTAG.
+Antes de escribir, la app muestra **cuánto ocupa el contenido** en cada modelo de NTAG (con una barra de uso) y en cuál es el más chico en que cabe.
+
+Los tipos que usaste hace poco aparecen arriba, en **Recientes**.
 
 ### ⚡ Automatizaciones
-Tags que, al acercarlos al teléfono (incluso con la app cerrada), ejecutan acciones:
+Tags que, al acercarlos al teléfono (incluso con la app cerrada), ejecutan acciones. Por seguridad, un tag solo puede abrir enlaces web (http/https):
 
 > 🔦 linterna · 🔔 modo de sonido · 🔊 volumen · ☀️ brillo · ⏱️ temporizador · 📱 abrir app o enlace · 📶 panel de Wi‑Fi · 🅱️ ajustes de Bluetooth
 
@@ -74,6 +78,7 @@ Tags que, al acercarlos al teléfono (incluso con la app cerrada), ejecutan acci
 ### 📋 Plantillas e historial
 - Guarda cualquier contenido como plantilla y escríbelo una vez o **en serie** (muchos tags seguidos, protegiendo cada uno con contraseña si quieres).
 - Historial de lecturas, escrituras y protecciones, con nombre y nota por tag, búsqueda y filtros.
+- **Deshacer** al borrar una plantilla, un registro o el historial completo.
 - **Borrar / formatear**: deja el tag vacío (y formatea los tags nuevos).
 
 ### 🌎 Idiomas
@@ -99,7 +104,7 @@ En Android 13+ se puede elegir el idioma solo para la app en *Ajustes → Apps �
 
 ## 🛡️ Privacidad y permisos
 
-La app **no pide acceso a internet**. El historial, las plantillas y las contraseñas recordadas se guardan solo en el almacenamiento privado del teléfono.
+La app **no pide acceso a internet**. El historial y las plantillas se guardan en el almacenamiento privado de la app (y entran en el respaldo de Android si lo tienes activado). Las **contraseñas recordadas nunca salen del teléfono**: quedan fuera del respaldo y de la copia a otro equipo.
 
 | Permiso | Para qué |
 |---|---|
@@ -128,7 +133,7 @@ Los permisos de las automatizaciones se piden solo cuando se usan.
 
 ## 🧪 Pruebas
 
-La lógica que no necesita un tag físico tiene **78 pruebas unitarias**: mapas de memoria NTAG, formato TLV, curva de la firma NXP, Wi‑Fi, vCard, redes sociales, coordenadas, contraseñas, automatizaciones e idiomas.
+La lógica que no necesita un tag físico tiene **98 pruebas unitarias**: mapas de memoria NTAG, formato TLV, curva de la firma NXP, Wi‑Fi, vCard, redes sociales, coordenadas, contraseñas, automatizaciones, idiomas, guardado del historial y plantillas (incluido deshacer y archivos dañados) y la lógica de la interfaz.
 
 ```bash
 ./gradlew test          # macOS / Linux
@@ -144,7 +149,7 @@ app/src/main/java/cl/machukeitor/gestornfc/
 ├─ MainActivity.kt          modo lector NFC (enableReaderMode) y splash
 ├─ AutomationActivity.kt    ejecuta automatizaciones con la app cerrada
 ├─ NfcViewModel.kt          estado y trabajos sobre el tag (escribir, proteger, en serie)
-├─ data/Stores.kt           historial y plantillas (JSON en almacenamiento privado)
+├─ data/Stores.kt           historial y plantillas (JSON con guardado atómico y deshacer)
 ├─ i18n/Tr.kt               textos en español, inglés y portugués
 ├─ nfc/
 │  ├─ TagInspector.kt       lectura detallada (GET_VERSION, READ_SIG, READ…)
@@ -157,9 +162,10 @@ app/src/main/java/cl/machukeitor/gestornfc/
 │  ├─ Automation.kt         acciones de automatización (JSON compacto)
 │  ├─ AutomationRunner.kt   ejecuta las acciones en el teléfono
 │  ├─ Coordinates.kt        coordenadas desde enlaces de Google Maps
-│  ├─ PasswordStore.kt      contraseñas recordadas por UID
+│  ├─ PasswordStore.kt      contraseñas recordadas por UID (fuera del respaldo)
 │  └─ TagWriter.kt          escritura NDEF y bloqueo permanente
 └─ ui/                      pantallas Compose (Leer, Escribir, Proteger, Historial, Acerca de…)
+   └─ NfcPlacement.kt       dónde apoyar el tag según la antena NFC (Android 14+)
 ```
 
 ---
