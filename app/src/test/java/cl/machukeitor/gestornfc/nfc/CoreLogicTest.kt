@@ -251,6 +251,33 @@ class CoreLogicTest {
     }
 
     @Test
+    fun `tag ajeno no puede abrir esquemas peligrosos`() {
+        val json = """{"a":[
+            {"t":"url","u":"intent://scan/#Intent;scheme=zxing;end"},
+            {"t":"url","u":"file:///sdcard/x"},
+            {"t":"url","u":"content://contacts/people"},
+            {"t":"url","u":"javascript:alert(1)"},
+            {"t":"url","u":"https://"},
+            {"t":"url","u":"HTTPS://Example.com/ruta?q=1"},
+            {"t":"url","u":"http://x.cl"}
+        ]}"""
+        assertEquals(
+            listOf(AutoAction.OpenUrl("HTTPS://Example.com/ruta?q=1"), AutoAction.OpenUrl("http://x.cl")),
+            AutoAction.fromJson(json).second,
+        )
+    }
+
+    @Test
+    fun `temporizador limitado a 24 horas y paquete valido`() {
+        val json = """{"a":[{"t":"timer","min":1440},{"t":"timer","min":1441},{"t":"timer","min":99999999},
+            {"t":"app","p":"com.spotify.music"},{"t":"app","p":"no es paquete"},{"t":"app","p":"x&id=y"}]}"""
+        assertEquals(
+            listOf(AutoAction.Timer(1440, ""), AutoAction.OpenApp("com.spotify.music")),
+            AutoAction.fromJson(json).second,
+        )
+    }
+
+    @Test
     fun `tipo NDEF de la automatizacion`() {
         assertEquals("machukeitor.cl:auto", AutoAction.NDEF_TYPE)
     }

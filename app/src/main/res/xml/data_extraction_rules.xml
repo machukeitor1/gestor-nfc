@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+: las contraseñas de los tags no van al respaldo en la nube ni se copian a otro teléfono. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="tag_passwords.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="tag_passwords.xml" />
+    </device-transfer>
+</data-extraction-rules>

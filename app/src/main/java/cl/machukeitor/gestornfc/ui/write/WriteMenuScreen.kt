@@ -96,7 +96,12 @@ enum class WriteType(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WriteMenuScreen(nfcBanner: @Composable () -> Unit, onSelect: (WriteType) -> Unit, onAbout: () -> Unit) {
+fun WriteMenuScreen(
+    nfcBanner: @Composable () -> Unit,
+    recents: List<WriteType>,
+    onSelect: (WriteType) -> Unit,
+    onAbout: () -> Unit,
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -114,18 +119,27 @@ fun WriteMenuScreen(nfcBanner: @Composable () -> Unit, onSelect: (WriteType) -> 
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                items(WriteType.entries.filter { !it.tool }) { WriteTypeCard(it, onSelect) }
-                item(span = { GridItemSpan(maxLineSpan) }) {
-                    Text(
-                        tr("Herramientas", "Tools", "Ferramentas"),
-                        style = MaterialTheme.typography.titleMedium,
-                        modifier = Modifier.padding(top = 8.dp).semantics { heading() },
-                    )
+                // Los usados hace poco, arriba: evita recorrer las 15 tarjetas cada vez.
+                if (recents.isNotEmpty()) {
+                    item(span = { GridItemSpan(maxLineSpan) }) { SectionTitle(tr("Recientes", "Recent", "Recentes"), first = true) }
+                    items(recents, key = { "recent_${it.route}" }) { WriteTypeCard(it, onSelect) }
+                    item(span = { GridItemSpan(maxLineSpan) }) { SectionTitle(tr("Contenido", "Content", "Conteúdo")) }
                 }
-                items(WriteType.entries.filter { it.tool }) { WriteTypeCard(it, onSelect) }
+                items(WriteType.entries.filter { !it.tool }, key = { it.route }) { WriteTypeCard(it, onSelect) }
+                item(span = { GridItemSpan(maxLineSpan) }) { SectionTitle(tr("Herramientas", "Tools", "Ferramentas")) }
+                items(WriteType.entries.filter { it.tool }, key = { it.route }) { WriteTypeCard(it, onSelect) }
             }
         }
     }
+}
+
+@Composable
+private fun SectionTitle(text: String, first: Boolean = false) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier.padding(top = if (first) 0.dp else 8.dp).semantics { heading() },
+    )
 }
 
 @Composable

@@ -3,6 +3,10 @@ package cl.machukeitor.gestornfc.ui.write
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -133,16 +137,51 @@ fun NameDialog(title: String, initial: String, onDismiss: () -> Unit, onConfirm:
     )
 }
 
+/** Cuánto ocupa un contenido de [size] bytes en un chip. [percent] puede pasar de 100 si no cabe. */
+data class ChipUsage(val chip: String, val capacity: Int, val percent: Int) {
+    val fits get() = percent <= 100
+}
+
+fun chipUsage(size: Int): List<ChipUsage> =
+    CHIP_CAPACITIES.map { (chip, cap) -> ChipUsage(chip, cap, (size * 100 + cap - 1) / cap) }
+
+/** El chip más chico (y barato) en el que cabe, o null si no cabe en ninguno. */
+fun smallestFittingChip(size: Int): String? = chipUsage(size).firstOrNull { it.fits }?.chip
+
 @Composable
 private fun SizePreview(payload: WritePayload?) {
     val size = payload?.sizeBytes ?: return
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
-        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(tr("Ocupa $size bytes", "Takes $size bytes", "Ocupa $size bytes"), style = MaterialTheme.typography.titleSmall)
+    val smallest = smallestFittingChip(size)
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = if (smallest == null) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
+        ),
+    ) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
-                CHIP_CAPACITIES.joinToString("   ") { (chip, cap) -> "$chip ${if (size <= cap) "✔" else "✘"}" },
-                style = MaterialTheme.typography.bodySmall,
+                tr("Ocupa $size bytes", "Takes $size bytes", "Ocupa $size bytes") + " · " + if (smallest != null) {
+                    tr("cabe en $smallest", "fits on $smallest", "cabe em $smallest")
+                } else {
+                    tr("no cabe en ningún NTAG: acórtalo", "doesn't fit on any NTAG: shorten it", "não cabe em nenhuma NTAG: encurte")
+                },
+                style = MaterialTheme.typography.titleSmall,
             )
+            chipUsage(size).forEach { u ->
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(u.chip, style = MaterialTheme.typography.bodySmall, modifier = Modifier.width(64.dp))
+                    LinearProgressIndicator(
+                        progress = { (u.percent.coerceAtMost(100)) / 100f },
+                        color = if (u.fits) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        if (u.fits) "${u.percent} %" else tr("no cabe", "too big", "não cabe"),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (u.fits) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.error,
+                        modifier = Modifier.width(56.dp),
+                    )
+                }
+            }
         }
     }
 }

@@ -56,9 +56,9 @@ private fun actionTemplates(): List<Pair<String, () -> AutoAction>> = listOf(
 )
 
 private fun AutoAction.isValid() = when (this) {
-    is AutoAction.OpenApp -> Regex("""^[a-zA-Z][\w]*(\.[a-zA-Z_][\w]*)+$""").matches(packageName)
-    is AutoAction.OpenUrl -> url.length > 8 && url.contains("://")
-    is AutoAction.Timer -> minutes in 1..1440
+    is AutoAction.OpenApp -> AutoAction.isPackageName(packageName)
+    is AutoAction.OpenUrl -> AutoAction.isWebUrl(url)
+    is AutoAction.Timer -> minutes in 1..AutoAction.MAX_TIMER_MINUTES
     else -> true
 }
 

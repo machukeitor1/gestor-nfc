@@ -38,6 +38,11 @@ android {
     buildFeatures {
         compose = true
     }
+
+    testOptions {
+        // android.util.Log en pruebas locales: no hace nada en vez de lanzar "Method not mocked".
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {

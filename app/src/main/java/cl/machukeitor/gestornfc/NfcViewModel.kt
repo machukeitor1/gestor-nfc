@@ -5,6 +5,7 @@ import android.nfc.Tag
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import cl.machukeitor.gestornfc.data.HistoryEntry
 import cl.machukeitor.gestornfc.data.HistoryStore
 import cl.machukeitor.gestornfc.data.HistoryType
 import cl.machukeitor.gestornfc.data.Template
@@ -326,9 +327,12 @@ class NfcViewModel(app: Application) : AndroidViewModel(app) {
 
     fun editHistory(id: Long, name: String, note: String) = historyStore.edit(id, name, note)
 
-    fun deleteHistory(id: Long) = historyStore.delete(id)
+    /** Devuelven lo borrado, para "Deshacer". */
+    fun deleteHistory(id: Long): List<HistoryEntry> = historyStore.delete(id)
 
-    fun clearHistory() = historyStore.clear()
+    fun clearHistory(): List<HistoryEntry> = historyStore.clear()
+
+    fun restoreHistory(removed: List<HistoryEntry>) = historyStore.restore(removed)
 
     // --- Plantillas ---
 
@@ -339,7 +343,9 @@ class NfcViewModel(app: Application) : AndroidViewModel(app) {
 
     fun renameTemplate(id: Long, name: String) = templateStore.rename(id, name)
 
-    fun deleteTemplate(id: Long) = templateStore.delete(id)
+    fun deleteTemplate(id: Long): List<Template> = templateStore.delete(id)
+
+    fun restoreTemplates(removed: List<Template>) = templateStore.restore(removed)
 
     fun writeTemplate(template: Template, series: Boolean, protectWith: ByteArray?) = startJob(
         TagJob.Write(

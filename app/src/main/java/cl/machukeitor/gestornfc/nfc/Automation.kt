@@ -78,6 +78,17 @@ sealed interface AutoAction {
         /** Tipo NDEF completo, tal como lo ve Android (siempre en minúsculas). */
         const val NDEF_TYPE = "$DOMAIN:$TYPE"
 
+        /** El reloj de Android admite temporizadores de hasta 24 horas. */
+        const val MAX_TIMER_MINUTES = 1440
+
+        private val PACKAGE = Regex("""^[a-zA-Z][\w]*(\.[a-zA-Z_][\w]*)+$""")
+        private val WEB_URL = Regex("""^https?://[^\s/?#]+\S*$""", RegexOption.IGNORE_CASE)
+
+        fun isPackageName(s: String) = PACKAGE.matches(s)
+
+        /** Enlace web completo (http o https) con un host. */
+        fun isWebUrl(s: String) = WEB_URL.matches(s)
+
         fun toJson(name: String, actions: List<AutoAction>): String = JSONObject()
             .put("n", name)
             .put("a", JSONArray().apply { actions.forEach { put(it.toJson()) } })
@@ -117,9 +128,10 @@ sealed interface AutoAction {
             "volume" -> Stream.entries.firstOrNull { it.key == o.optString("s") }
                 ?.let { Volume(it, o.optInt("p").coerceIn(0, 100)) }
             "bright" -> Brightness(o.optInt("p").coerceIn(0, 100))
-            "timer" -> o.optInt("min").takeIf { it > 0 }?.let { Timer(it, o.optString("l")) }
-            "app" -> o.optString("p").takeIf { it.isNotBlank() }?.let(::OpenApp)
-            "url" -> o.optString("u").takeIf { it.isNotBlank() }?.let(::OpenUrl)
+            "timer" -> o.optInt("min").takeIf { it in 1..MAX_TIMER_MINUTES }?.let { Timer(it, o.optString("l")) }
+            "app" -> o.optString("p").takeIf { isPackageName(it) }?.let(::OpenApp)
+            // Un tag ajeno no debe poder abrir esquemas arbitrarios (intent:, file:, content:…): solo web.
+            "url" -> o.optString("u").takeIf { isWebUrl(it) }?.let(::OpenUrl)
             "wifi" -> WifiPanel
             "bt" -> BluetoothSettings
             else -> null

@@ -38,8 +38,18 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import cl.machukeitor.gestornfc.ui.write.RecentWrites
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -95,10 +105,41 @@ fun AppRoot(viewModel: NfcViewModel, nfcAdapter: NfcAdapter?) {
     val route = backStack?.destination?.route.orEmpty()
     val context = LocalContext.current
     val openAbout = { navController.navigate(ROUTE_ABOUT) }
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val hint = remember(nfcAdapter) { placementHint(nfcAntennaZone(nfcAdapter)) }
+    var recents by remember { mutableStateOf(RecentWrites.load(context)) }
 
-    // Al leer un tag (sin escritura pendiente) se salta a la pestaña "Leer".
+    /** Muestra "[message] · Deshacer"; si el usuario lo toca, se ejecuta [undo]. */
+    fun offerUndo(message: String, undo: () -> Unit) {
+        scope.launch {
+            snackbar.currentSnackbarData?.dismiss()
+            val result = snackbar.showSnackbar(message, actionLabel = tr("Deshacer", "Undo", "Desfazer"), duration = SnackbarDuration.Long)
+            if (result == SnackbarResult.ActionPerformed) undo()
+        }
+    }
+
+    // Al leer un tag (sin escritura pendiente): desde las pestañas principales se salta a "Leer";
+    // desde un formulario se avisa con un mensaje, para no perder lo que se estaba escribiendo.
+    // handledRead sobrevive a la rotación: al recrear la pantalla no se repite el aviso ni el salto.
+    var handledRead by rememberSaveable { mutableIntStateOf(state.readCount) }
     LaunchedEffect(state.readCount) {
-        if (state.readCount > 0 && route != ROUTE_READ) navController.switchTab(ROUTE_READ)
+        if (state.readCount == handledRead) return@LaunchedEffect
+        handledRead = state.readCount
+        if (route == ROUTE_READ) return@LaunchedEffect
+        if (route in TAB_ROUTES || route.isEmpty()) {
+            navController.switchTab(ROUTE_READ)
+            return@LaunchedEffect
+        }
+        val what = state.lastRead?.ndef?.summary ?: state.lastRead?.chip
+        val message = if (state.readError != null || what == null) {
+            tr("No se pudo leer el tag", "Couldn't read the tag", "Não foi possível ler a tag")
+        } else {
+            tr("Tag leído", "Tag read", "Tag lida") + ": $what"
+        }
+        snackbar.currentSnackbarData?.dismiss()
+        val result = snackbar.showSnackbar(message, actionLabel = tr("Ver", "View", "Ver"), duration = SnackbarDuration.Long)
+        if (result == SnackbarResult.ActionPerformed) navController.switchTab(ROUTE_READ)
     }
 
     val saveTemplate: (String, WritePayload) -> Unit = { name, payload ->
@@ -108,6 +149,7 @@ fun AppRoot(viewModel: NfcViewModel, nfcAdapter: NfcAdapter?) {
 
     CompositionLocalProvider(LocalSaveTemplate provides saveTemplate) {
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
@@ -149,12 +191,17 @@ fun AppRoot(viewModel: NfcViewModel, nfcAdapter: NfcAdapter?) {
                             Toast.makeText(context, templateSaved(name), Toast.LENGTH_SHORT).show()
                         },
                         nfcBanner = { NfcStatusBanner(nfcAdapter) },
+                        placementHint = hint,
                     )
                 }
                 composable(ROUTE_WRITE) {
                     WriteMenuScreen(
                         nfcBanner = { NfcStatusBanner(nfcAdapter) },
-                        onSelect = { navController.navigate("$ROUTE_WRITE/${it.route}") },
+                        recents = recents,
+                        onSelect = {
+                            recents = RecentWrites.record(context, it)
+                            navController.navigate("$ROUTE_WRITE/${it.route}")
+                        },
                         onAbout = openAbout,
                     )
                 }
@@ -163,8 +210,14 @@ fun AppRoot(viewModel: NfcViewModel, nfcAdapter: NfcAdapter?) {
                         entries = history,
                         onAbout = openAbout,
                         onEdit = viewModel::editHistory,
-                        onDelete = viewModel::deleteHistory,
-                        onClear = viewModel::clearHistory,
+                        onDelete = { id ->
+                            val removed = viewModel.deleteHistory(id)
+                            offerUndo(tr("Registro borrado", "Entry deleted", "Registro apagado")) { viewModel.restoreHistory(removed) }
+                        },
+                        onClear = {
+                            val removed = viewModel.clearHistory()
+                            offerUndo(tr("Historial borrado", "History cleared", "Histórico apagado")) { viewModel.restoreHistory(removed) }
+                        },
                         onWriteAgain = { e -> e.ndef?.let { viewModel.startWrite(WritePayload.Raw(it, e.title)) } },
                         onSaveTemplate = { e, name ->
                             e.ndef?.let { viewModel.saveTemplate(name, e.summary, it) }
@@ -181,7 +234,13 @@ fun AppRoot(viewModel: NfcViewModel, nfcAdapter: NfcAdapter?) {
                         onBack = { navController.popBackStack() },
                         onWrite = viewModel::writeTemplate,
                         onRename = viewModel::renameTemplate,
-                        onDelete = viewModel::deleteTemplate,
+                        onDelete = { id ->
+                            val removed = viewModel.deleteTemplate(id)
+                            val name = removed.firstOrNull()?.name.orEmpty()
+                            offerUndo(tr("Plantilla \"$name\" borrada", "Template \"$name\" deleted", "Modelo \"$name\" apagado")) {
+                                viewModel.restoreTemplates(removed)
+                            }
+                        },
                     )
                 }
                 composable("$ROUTE_WRITE/social") {
@@ -222,8 +281,11 @@ fun AppRoot(viewModel: NfcViewModel, nfcAdapter: NfcAdapter?) {
         onDismiss = viewModel::dismissWrite,
         onRetry = viewModel::retryWrite,
         onPassword = viewModel::submitPassword,
+        placementHint = hint,
     )
 }
+
+private val TAB_ROUTES = setOf(ROUTE_READ, ROUTE_WRITE, ROUTE_HISTORY, ROUTE_ABOUT)
 
 private val cancelLabel get() = tr("Cancelar", "Cancel", "Cancelar")
 
@@ -244,7 +306,20 @@ private fun WriteDialog(
     onDismiss: () -> Unit,
     onRetry: () -> Unit,
     onPassword: (ByteArray, Boolean) -> Unit,
+    placementHint: String,
 ) {
+    // Vibración distinta para éxito y error (la de "tag detectado" la hace MainActivity).
+    val haptic = LocalHapticFeedback.current
+    LaunchedEffect(state) {
+        if (state is WriteState.Done) {
+            haptic.performHapticFeedback(
+                if (state.result is WriteResult.Success) HapticFeedbackType.Confirm else HapticFeedbackType.Reject
+            )
+        }
+    }
+    LaunchedEffect(seriesCount) { if (seriesCount > 0) haptic.performHapticFeedback(HapticFeedbackType.Confirm) }
+    LaunchedEffect(seriesError) { if (seriesError != null) haptic.performHapticFeedback(HapticFeedbackType.Reject) }
+
     when (state) {
         WriteState.Idle -> Unit
         is WriteState.Waiting -> {
@@ -275,10 +350,10 @@ private fun WriteDialog(
                             }
                         } else {
                             Text(
-                                tr(
-                                    "Apoya el tag en la parte trasera del teléfono y no lo muevas hasta que termine.",
-                                    "Hold the tag against the back of the phone and don't move it until it finishes.",
-                                    "Encoste a tag na parte de trás do celular e não a mova até terminar.",
+                                placementHint + " " + tr(
+                                    "No lo muevas hasta que termine.",
+                                    "Don't move it until it finishes.",
+                                    "Não a mova até terminar.",
                                 )
                             )
                         }

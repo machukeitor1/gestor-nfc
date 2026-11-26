@@ -79,6 +79,8 @@ fun ReadScreen(
     onCopy: (NdefInfo) -> Unit,
     onSaveTemplate: (NdefInfo, String) -> Unit,
     nfcBanner: @Composable () -> Unit,
+    /** Dónde apoyar el tag en este teléfono (según la antena, si Android la informa). */
+    placementHint: String,
 ) {
     Scaffold(
         topBar = {
@@ -119,10 +121,10 @@ fun ReadScreen(
                 EmptyState(
                     icon = { Icon(Icons.Filled.Nfc, null, Modifier.size(96.dp), tint = MaterialTheme.colorScheme.primary) },
                     title = tr("Acerca un tag", "Tap a tag", "Aproxime uma tag"),
-                    subtitle = tr(
-                        "Apóyalo en la parte trasera del teléfono para ver toda su información.",
-                        "Hold it against the back of the phone to see all its information.",
-                        "Encoste-a na parte de trás do celular para ver todas as informações.",
+                    subtitle = placementHint + "\n" + tr(
+                        "Verás toda su información.",
+                        "You'll see all its information.",
+                        "Você verá todas as informações.",
                     ),
                 )
             } else {
